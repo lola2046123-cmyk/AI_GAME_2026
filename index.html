@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#121212" />
+  <title>AI_GAME_2026 — AI 游戏设计大赛</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --cyan: #00f0ff;
+      --cyan-soft: #00e5e5;
+      --cyan-dim: rgba(0, 240, 255, 0.5);
+      --cyan-glow: rgba(0, 240, 255, 0.35);
+      --pink: #ff007f;
+      --pink-dim: rgba(255, 0, 127, 0.55);
+      --amber: #ffb020;
+      --amber-dim: rgba(255, 176, 32, 0.45);
+      --metal: #1a1a1a;
+      --charcoal: #121212;
+      --text: #dceef2;
+      --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+      --section-y: clamp(3.25rem, 9vh, 7rem);
+      --section-x: clamp(1.25rem, 4vw, 3rem);
+      --line-subtle: rgba(0, 240, 255, 0.08);
+      --noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.055'/%3E%3C/svg%3E");
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", ui-sans-serif, system-ui, monospace;
+      background: var(--charcoal);
+      color: var(--text);
+      line-height: 1.58;
+      min-height: 100vh;
+      overflow-x: hidden;
+      text-rendering: optimizeLegibility;
+    }
+
+    ::selection {
+      background: rgba(0, 240, 255, 0.28);
+      color: #fff;
+    }
+
+    /* 视频与粒子仅存在于首屏 .hero 内；滚动后为纯色页面 */
+    .hero-media {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+      background: var(--metal);
+      min-height: 100%;
+    }
+
+    /* 任意视口宽高比：铺满容器、居中裁切，不拉伸变形 */
+    .hero-media video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center center;
+      z-index: 1;
+      pointer-events: none;
+      filter: saturate(1.05) contrast(1.08);
+    }
+
+    /* 与下方静态区同色衔接，消除硬切断层 */
+    .hero-edge-blend {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 5;
+      height: clamp(64px, 22vmin, 320px);
+      pointer-events: none;
+      background: linear-gradient(
+        to bottom,
+        rgba(18, 18, 18, 0) 0%,
+        rgba(18, 18, 18, 0.06) 18%,
+        rgba(18, 18, 18, 0.38) 52%,
+        rgba(18, 18, 18, 0.88) 85%,
+        var(--charcoal) 100%
+      );
+    }
+
+    .hero-media #code-canvas {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 3;
+      pointer-events: none;
+      opacity: 0.28;
+      mix-blend-mode: screen;
+      mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.35) 28%, black 48%);
+      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.35) 28%, black 48%);
+    }
+
+    .hero-media .video-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      /* 上半更透，露出视频内数字/屏幕；向下渐暗便于底部文案阅读 */
+      background:
+        linear-gradient(180deg, rgba(10, 12, 16, 0.25) 0%, rgba(10, 12, 16, 0.2) 38%, rgba(18, 20, 24, 0.72) 62%, rgba(14, 16, 20, 0.88) 100%);
+      pointer-events: none;
+    }
+
+    .hero-media .video-overlay::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: var(--noise);
+      opacity: 0.9;
+      mix-blend-mode: overlay;
+      pointer-events: none;
+    }
+
+    main {
+      position: relative;
+      z-index: 0;
+      background: var(--charcoal);
+    }
+
+    section {
+      position: relative;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: var(--section-y) var(--section-x);
+      scroll-margin-top: 1.25rem;
+    }
+
+    main > section:not(.hero) {
+      border-top: 1px solid var(--line-subtle);
+    }
+
+    /* Scroll reveal */
+    .reveal {
+      opacity: 0;
+      transform: translateY(36px);
+      transition: opacity 0.85s var(--ease-out), transform 0.85s var(--ease-out);
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .reveal-stagger > * {
+      opacity: 0;
+      transform: translateY(28px);
+      transition: opacity 0.75s var(--ease-out), transform 0.75s var(--ease-out);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .reveal,
+      .reveal.visible,
+      .reveal-stagger > *,
+      .reveal-stagger.visible > * {
+        opacity: 1 !important;
+        transform: none !important;
+        transition: none !important;
+      }
+
+      .ring-fill {
+        transition: none !important;
+      }
+
+      .reward-card--champion .reward-amount::after,
+      .cta-btn::after {
+        display: none !important;
+      }
+    }
+
+    .reveal-stagger.visible > *:nth-child(1) { transition-delay: 0.05s; }
+    .reveal-stagger.visible > *:nth-child(2) { transition-delay: 0.12s; }
+    .reveal-stagger.visible > *:nth-child(3) { transition-delay: 0.19s; }
+    .reveal-stagger.visible > *:nth-child(4) { transition-delay: 0.26s; }
+    .reveal-stagger.visible > *:nth-child(5) { transition-delay: 0.33s; }
+    .reveal-stagger.visible > *:nth-child(6) { transition-delay: 0.4s; }
+    .reveal-stagger.visible > *:nth-child(7) { transition-delay: 0.47s; }
+    .reveal-stagger.visible > *:nth-child(8) { transition-delay: 0.54s; }
+
+    .reveal-stagger.visible > * {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /*
+      Hero 必须突破全局 section 的 max-width:1200px 与左右 padding，
+      否则宽屏下视频只有 1200px 宽、两侧露底色（与素材 1280/1920 无关，是布局限制）。
+    */
+    .hero {
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
+      max-width: none;
+      width: 100%;
+      margin-inline: 0;
+      padding-left: 0;
+      padding-right: 0;
+      min-height: 100vh;
+      min-height: 100svh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      text-align: center;
+      padding-top: env(safe-area-inset-top, 0);
+      padding-bottom: max(env(safe-area-inset-bottom, 0), clamp(1.25rem, 5vh, 3rem));
+    }
+
+    .hero-spacer {
+      position: relative;
+      z-index: 6;
+      flex-shrink: 0;
+      width: 100%;
+      min-height: clamp(280px, 58vh, 720px);
+      pointer-events: none;
+    }
+
+    .hero-copy {
+      position: relative;
+      z-index: 6;
+      width: 100%;
+      max-width: 52rem;
+      margin: 0 auto;
+      margin-top: clamp(0.75rem, 3vh, 2rem);
+      padding: 0 clamp(1rem, 4vw, 2rem);
+    }
+
+    .hero-title {
+      margin-top: 0;
+      margin-inline: auto;
+      max-width: 14em;
+      font-size: clamp(2.7rem, 8.4vw, 4.7rem);
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: 0.04em;
+      text-transform: none;
+      color: rgba(248, 252, 255, 0.95);
+      text-shadow:
+        0 0 20px var(--cyan-glow),
+        0 0 40px rgba(0, 240, 255, 0.15);
+      text-wrap: balance;
+    }
+
+    .deadline-clock {
+      margin-top: clamp(1.75rem, 4vh, 2.5rem);
+      margin-inline: auto;
+      display: inline-block;
+      text-align: left;
+      font-family: "Share Tech Mono", ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: clamp(0.8rem, 1.7vw, 1.05rem);
+      padding: 0.85rem 1.5rem;
+      border: 1px solid rgba(0, 240, 255, 0.35);
+      border-radius: 2px;
+      background: rgba(14, 18, 22, 0.72);
+      box-shadow:
+        inset 0 0 28px rgba(0, 240, 255, 0.06),
+        0 0 32px rgba(0, 240, 255, 0.12);
+      color: var(--cyan-soft);
+      letter-spacing: 0.12em;
+    }
+
+    .deadline-clock .label {
+      display: block;
+      font-size: 0.62em;
+      letter-spacing: 0.22em;
+      color: var(--amber);
+      margin-bottom: 0.4rem;
+      text-shadow: 0 0 10px var(--amber-dim);
+    }
+
+    /* Section titles */
+    .section-label {
+      font-size: 0.7rem;
+      font-family: "Share Tech Mono", monospace;
+      letter-spacing: 0.38em;
+      color: rgba(0, 240, 255, 0.82);
+      margin-bottom: 0.65rem;
+      text-transform: uppercase;
+      text-shadow: 0 0 16px var(--cyan-glow);
+    }
+
+    .section-title {
+      font-size: clamp(1.5rem, 3.5vw, 2.25rem);
+      font-weight: 600;
+      line-height: 1.28;
+      letter-spacing: 0.02em;
+      margin-bottom: clamp(1.75rem, 4vh, 2.5rem);
+      color: rgba(255, 255, 255, 0.96);
+      text-wrap: balance;
+    }
+
+    /* Industrial glass / HUD panels */
+    .glass {
+      position: relative;
+      background:
+        var(--noise),
+        linear-gradient(145deg, rgba(30, 36, 42, 0.55) 0%, rgba(18, 22, 28, 0.72) 100%);
+      background-size: 200px 200px, auto;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid rgba(0, 240, 255, 0.28);
+      border-radius: 4px;
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.35) inset,
+        0 10px 48px rgba(0, 0, 0, 0.55),
+        0 0 50px rgba(0, 240, 255, 0.06);
+      transition: transform 0.35s var(--ease-out), box-shadow 0.35s var(--ease-out), border-color 0.35s var(--ease-out);
+    }
+
+    .glass::before {
+      content: "";
+      position: absolute;
+      inset: 6px;
+      border: 1px solid rgba(0, 240, 255, 0.12);
+      border-radius: 2px;
+      pointer-events: none;
+    }
+
+    .glass::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background:
+        linear-gradient(var(--cyan), var(--cyan)) left 10px top 10px / 14px 2px no-repeat,
+        linear-gradient(var(--cyan), var(--cyan)) left 10px top 10px / 2px 14px no-repeat,
+        linear-gradient(var(--cyan), var(--cyan)) right 10px top 10px / 14px 2px no-repeat,
+        linear-gradient(var(--cyan), var(--cyan)) right 10px top 10px / 2px 14px no-repeat,
+        linear-gradient(var(--cyan), var(--cyan)) left 10px bottom 10px / 14px 2px no-repeat,
+        linear-gradient(var(--cyan), var(--cyan)) left 10px bottom 10px / 2px 14px no-repeat,
+        linear-gradient(var(--cyan), var(--cyan)) right 10px bottom 10px / 14px 2px no-repeat,
+        linear-gradient(var(--cyan), var(--cyan)) right 10px bottom 10px / 2px 14px no-repeat;
+      opacity: 0.65;
+      pointer-events: none;
+    }
+
+    .hud-meta {
+      position: absolute;
+      font-family: "Share Tech Mono", monospace;
+      font-size: 0.5rem;
+      letter-spacing: 0.12em;
+      color: rgba(0, 240, 255, 0.35);
+      line-height: 1.2;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .hud-meta--tl { top: 10px; left: 22px; text-align: left; }
+    .hud-meta--tr { top: 10px; right: 22px; text-align: right; color: rgba(255, 176, 32, 0.4); }
+    .hud-meta--bl { bottom: 10px; left: 22px; text-align: left; }
+    .hud-meta--br { bottom: 10px; right: 22px; text-align: right; color: rgba(255, 0, 127, 0.35); }
+
+    .rewards-grid {
+      display: grid;
+      gap: 1.25rem;
+      grid-template-columns: 1fr;
+    }
+
+    @media (min-width: 900px) {
+      .rewards-grid {
+        grid-template-columns: 1fr 1.2fr 1fr;
+        grid-template-rows: auto auto;
+        align-items: stretch;
+      }
+
+      .rewards-grid > .reward-card:nth-child(1) {
+        grid-column: 1;
+        grid-row: 1;
+      }
+
+      .reward-card--champion {
+        grid-column: 2;
+        grid-row: 1;
+        max-width: none;
+        margin: 0;
+        min-height: 200px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+
+      .rewards-grid > .reward-card:nth-child(3) {
+        grid-column: 3;
+        grid-row: 1;
+      }
+
+      .rewards-grid > .sub-grid {
+        grid-column: 1 / -1;
+        grid-row: 2;
+      }
+    }
+
+    .reward-card {
+      padding: clamp(1.35rem, 3vw, 2.1rem);
+      padding-top: clamp(1.75rem, 3.5vw, 2.35rem);
+      text-align: center;
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      .reward-card:hover {
+        transform: translateY(-4px);
+        border-color: rgba(0, 240, 255, 0.45);
+        box-shadow:
+          0 0 0 1px rgba(0, 240, 255, 0.12) inset,
+          0 14px 52px rgba(0, 0, 0, 0.6),
+          0 0 72px rgba(0, 240, 255, 0.14);
+      }
+    }
+
+    .reward-card--champion {
+      grid-column: 1 / -1;
+      max-width: 520px;
+      margin: 0 auto;
+      width: 100%;
+      padding: clamp(1.85rem, 4vw, 2.85rem);
+      padding-top: clamp(2.25rem, 4.5vw, 3rem);
+      border-color: rgba(0, 240, 255, 0.5);
+      box-shadow:
+        0 0 0 1px rgba(255, 176, 32, 0.15) inset,
+        0 0 70px rgba(0, 240, 255, 0.2),
+        0 0 110px rgba(255, 176, 32, 0.08);
+    }
+
+    .reward-role {
+      font-size: 0.72rem;
+      font-family: "Share Tech Mono", monospace;
+      letter-spacing: 0.22em;
+      color: rgba(0, 240, 255, 0.55);
+      text-transform: uppercase;
+      margin-bottom: 0.55rem;
+    }
+
+    .reward-amount {
+      font-family: "Share Tech Mono", monospace;
+      font-size: clamp(1.65rem, 4vw, 2.45rem);
+      font-weight: 400;
+      color: var(--cyan);
+      text-shadow:
+        0 0 16px var(--cyan-dim),
+        0 0 40px var(--cyan-glow);
+      filter: drop-shadow(0 0 6px rgba(0, 240, 255, 0.35));
+    }
+
+    .reward-card--champion .reward-amount {
+      position: relative;
+      display: inline-block;
+      overflow: hidden;
+      padding: 0 0.08em;
+      font-size: clamp(2.1rem, 5vw, 3.1rem);
+      color: var(--cyan-soft);
+      text-shadow:
+        0 0 20px var(--cyan-dim),
+        0 0 50px rgba(0, 240, 255, 0.45),
+        0 0 90px rgba(255, 176, 32, 0.2);
+    }
+
+    .reward-card--champion .reward-amount::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -120%;
+      width: 65%;
+      height: 100%;
+      background: linear-gradient(
+        105deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.15) 28%,
+        rgba(255, 255, 255, 0.95) 46%,
+        rgba(200, 255, 255, 0.85) 52%,
+        rgba(255, 255, 255, 0.2) 68%,
+        transparent 100%
+      );
+      opacity: 0;
+      pointer-events: none;
+      mix-blend-mode: overlay;
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      .reward-card--champion:hover .reward-amount::after {
+        opacity: 1;
+        animation: scan-sweep-strong 1s ease-out forwards;
+      }
+    }
+
+    .sub-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+    }
+
+    @media (max-width: 640px) {
+      .sub-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .sub-grid .reward-card {
+      padding: 1rem;
+    }
+
+    .sub-grid .reward-amount {
+      font-size: clamp(1.1rem, 3vw, 1.35rem);
+    }
+
+    .sub-grid > .reward-card {
+      opacity: 0;
+      transform: translateY(22px);
+      transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1), transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .rewards-grid.visible .sub-grid > .reward-card:nth-child(1) { transition-delay: 0.38s; }
+    .rewards-grid.visible .sub-grid > .reward-card:nth-child(2) { transition-delay: 0.48s; }
+    .rewards-grid.visible .sub-grid > .reward-card:nth-child(3) { transition-delay: 0.58s; }
+
+    .rewards-grid.visible .sub-grid > .reward-card {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Protocol / rings（避免 backdrop-filter 裁切 drop-shadow，圆环光效画在 SVG 内） */
+    #protocol {
+      overflow: visible;
+    }
+
+    .rings-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: clamp(2rem, 6vw, 4rem);
+      overflow: visible;
+      padding: clamp(1.25rem, 3vh, 2rem) clamp(0.5rem, 2vw, 1.25rem);
+    }
+
+    .ring-item {
+      text-align: center;
+      overflow: visible;
+    }
+
+    .ring-panel.glass {
+      overflow: visible;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+      background:
+        var(--noise),
+        linear-gradient(145deg, rgba(28, 34, 42, 0.94) 0%, rgba(14, 18, 24, 0.96) 100%);
+      background-size: 200px 200px, auto;
+    }
+
+    .ring-svg {
+      width: clamp(140px, 28vw, 180px);
+      height: clamp(140px, 28vw, 180px);
+      overflow: visible;
+    }
+
+    .ring-aura {
+      stroke: var(--cyan);
+      opacity: 0.22;
+      pointer-events: none;
+    }
+
+    .ring-svg circle {
+      fill: none;
+      stroke-width: 8;
+      stroke-linecap: round;
+    }
+
+    .ring-bg {
+      stroke: rgba(0, 240, 255, 0.14);
+    }
+
+    .ring-fill {
+      stroke: var(--cyan);
+      stroke-dasharray: var(--circ, 282.74);
+      stroke-dashoffset: var(--circ, 282.74);
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+      transition: stroke-dashoffset 1.4s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .ring-item.visible .ring-fill {
+      stroke-dashoffset: var(--offset);
+    }
+
+    .ring-label {
+      margin-top: 1rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.96);
+    }
+
+    .ring-sublabel {
+      font-size: 0.85rem;
+      font-weight: 400;
+      opacity: 0.82;
+      color: rgba(200, 230, 235, 0.85);
+      margin-top: 0.15rem;
+    }
+
+    .ring-pct {
+      font-family: "Share Tech Mono", ui-monospace, monospace;
+      font-size: 0.9rem;
+      color: var(--cyan);
+      margin-top: 0.25rem;
+      text-shadow: 0 0 12px var(--cyan-glow);
+    }
+
+    .ring-panel {
+      position: relative;
+      padding: 2rem 1.35rem 1.5rem;
+      border-radius: 4px;
+    }
+
+    /* 投稿说明 */
+    .guide-lead {
+      text-align: left;
+      font-size: clamp(0.7rem, 1.47vw, 0.84rem);
+      line-height: 1.8;
+      color: rgba(230, 242, 245, 0.92);
+      margin-bottom: clamp(1.75rem, 4vh, 2.5rem);
+      max-width: 56rem;
+    }
+
+    .guide-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 1.15rem;
+    }
+
+    .guide-card {
+      position: relative;
+      padding: clamp(1.2rem, 3vw, 1.65rem) clamp(1.15rem, 3vw, 1.5rem);
+      text-align: left;
+    }
+
+    .guide-card h3 {
+      font-size: clamp(1rem, 2.2vw, 1.15rem);
+      font-weight: 600;
+      color: var(--cyan);
+      letter-spacing: 0.06em;
+      margin-bottom: 0.85rem;
+      text-shadow: 0 0 14px var(--cyan-glow);
+    }
+
+    .guide-card p {
+      font-size: clamp(0.9rem, 1.6vw, 1rem);
+      line-height: 1.75;
+      color: rgba(220, 238, 242, 0.9);
+      margin-bottom: 0.65rem;
+    }
+
+    .guide-card p:last-child {
+      margin-bottom: 0;
+    }
+
+    .guide-card strong {
+      color: rgba(255, 255, 255, 0.94);
+      font-weight: 600;
+    }
+
+    .guide-card ol {
+      margin: 0.35rem 0 0;
+      padding-left: 1.35rem;
+    }
+
+    .guide-card li {
+      font-size: clamp(0.9rem, 1.6vw, 1rem);
+      line-height: 1.75;
+      color: rgba(220, 238, 242, 0.9);
+      margin-bottom: 0.75rem;
+    }
+
+    .guide-card li:last-child {
+      margin-bottom: 0;
+    }
+
+    /* CTA */
+    .cta-block {
+      text-align: center;
+      padding-bottom: clamp(4rem, 12vh, 8rem);
+    }
+
+    .cta-copy {
+      font-size: clamp(0.7rem, 1.54vw, 0.945rem);
+      line-height: 1.65;
+      max-width: 36rem;
+      margin: 0 auto 2.5rem;
+      color: rgba(220, 238, 242, 0.9);
+    }
+
+    .cta-btn-wrap {
+      display: inline-block;
+      position: relative;
+      overflow: hidden;
+      border-radius: 4px;
+    }
+
+    a.cta-btn {
+      text-decoration: none;
+    }
+
+    a.cta-btn:visited {
+      color: #061014;
+    }
+
+    a.cta-btn:focus-visible {
+      outline: 2px solid var(--cyan);
+      outline-offset: 4px;
+    }
+
+    a.cta-btn:focus:not(:focus-visible) {
+      outline: none;
+    }
+
+    .cta-btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: min(92vw, 420px);
+      padding: 1.15rem 2rem;
+      font-size: clamp(0.95rem, 2vw, 1.15rem);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: #061014;
+      background: linear-gradient(180deg, var(--cyan) 0%, var(--cyan-soft) 100%);
+      border: 1px solid rgba(180, 255, 255, 0.5);
+      cursor: pointer;
+      font-family: inherit;
+      box-shadow:
+        0 0 28px rgba(0, 240, 255, 0.55),
+        0 0 64px rgba(0, 240, 255, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35);
+      transition: box-shadow 0.3s ease, transform 0.2s ease, filter 0.3s ease;
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      .cta-btn:hover {
+        box-shadow:
+          0 0 48px rgba(0, 240, 255, 0.75),
+          0 0 96px rgba(0, 240, 255, 0.35),
+          inset 0 1px 0 rgba(255, 255, 255, 0.45);
+        filter: brightness(1.06);
+        transform: scale(1.02);
+      }
+    }
+
+    .cta-btn:active {
+      transform: scale(0.98);
+    }
+
+    .cta-btn::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -120%;
+      width: 62%;
+      height: 100%;
+      background: linear-gradient(
+        105deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.12) 22%,
+        rgba(255, 255, 255, 0.55) 38%,
+        rgba(255, 255, 255, 1) 48%,
+        rgba(180, 255, 255, 0.9) 54%,
+        rgba(255, 255, 255, 0.45) 68%,
+        transparent 100%
+      );
+      opacity: 0;
+      pointer-events: none;
+      mix-blend-mode: soft-light;
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      .cta-btn-wrap:hover .cta-btn::after {
+        opacity: 1;
+        animation: scan-sweep-strong 0.95s ease-out forwards;
+      }
+    }
+
+    @keyframes scan-sweep-strong {
+      0% { left: -120%; }
+      100% { left: 160%; }
+    }
+
+    .footer-note {
+      margin-top: 2rem;
+      font-size: 0.65rem;
+      font-family: "Share Tech Mono", monospace;
+      letter-spacing: 0.22em;
+      color: rgba(0, 240, 255, 0.32);
+    }
+
+    .footer-note span {
+      color: rgba(255, 176, 32, 0.35);
+    }
+
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero reveal" id="hero">
+      <div class="hero-media" aria-hidden="true">
+        <video
+          src="hero-bg-ai-contest.mp4"
+          muted
+          loop
+          autoplay
+          playsinline
+          preload="auto"
+        ></video>
+        <div class="video-overlay"></div>
+        <canvas id="code-canvas" aria-hidden="true"></canvas>
+        <div class="hero-edge-blend" aria-hidden="true"></div>
+      </div>
+      <div class="hero-spacer" aria-hidden="true"></div>
+      <div class="hero-copy">
+        <h1 class="hero-title">AI 游戏设计大赛</h1>
+        <div class="deadline-clock" role="status">
+          <span class="label">DEADLINE // 投稿截止</span>
+          <span>投稿截止日期: 2026.04.26</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="rewards" aria-labelledby="rewards-heading">
+      <p class="section-label reveal">BOUNTY_TIERS</p>
+      <h2 id="rewards-heading" class="section-title reveal">奖励阶梯 — 赏金卡片</h2>
+      <div class="rewards-grid reveal-stagger" id="rewards-grid">
+        <article class="reward-card glass">
+          <span class="hud-meta hud-meta--tl">X:-12.4 Y:+09.1</span>
+          <span class="hud-meta hud-meta--tr">SYNC</span>
+          <span class="hud-meta hud-meta--bl">TIER_B</span>
+          <span class="hud-meta hud-meta--br">v2.1</span>
+          <p class="reward-role">第二名 · 拓荒者</p>
+          <p class="reward-amount">5,000 U</p>
+        </article>
+        <article class="reward-card glass reward-card--champion">
+          <span class="hud-meta hud-meta--tl">HANGAR_MAIN // PRIZE</span>
+          <span class="hud-meta hud-meta--tr">PWR ●</span>
+          <span class="hud-meta hud-meta--bl">COORD 00.00.00</span>
+          <span class="hud-meta hud-meta--br">SIG_OK</span>
+          <p class="reward-role">第一名 · 领航者</p>
+          <p class="reward-amount">10,000 U</p>
+        </article>
+        <article class="reward-card glass">
+          <span class="hud-meta hud-meta--tl">X:-08.0 Y:+09.1</span>
+          <span class="hud-meta hud-meta--tr">SYNC</span>
+          <span class="hud-meta hud-meta--bl">TIER_C</span>
+          <span class="hud-meta hud-meta--br">v2.1</span>
+          <p class="reward-role">第三名 · 拓荒者</p>
+          <p class="reward-amount">3,000 U</p>
+        </article>
+        <div class="sub-grid" style="grid-column: 1 / -1;">
+          <article class="reward-card glass">
+            <span class="hud-meta hud-meta--tl">IDX:04</span>
+            <span class="hud-meta hud-meta--tr">ARM</span>
+            <p class="reward-role">第四名 · 觉醒者</p>
+            <p class="reward-amount">1,500 U</p>
+          </article>
+          <article class="reward-card glass">
+            <span class="hud-meta hud-meta--tl">IDX:05</span>
+            <span class="hud-meta hud-meta--tr">ARM</span>
+            <p class="reward-role">第五名 · 觉醒者</p>
+            <p class="reward-amount">1,500 U</p>
+          </article>
+          <article class="reward-card glass">
+            <span class="hud-meta hud-meta--tl">IDX:06</span>
+            <span class="hud-meta hud-meta--tr">ARM</span>
+            <p class="reward-role">第六名 · 觉醒者</p>
+            <p class="reward-amount">1,500 U</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="protocol" aria-labelledby="protocol-heading">
+      <p class="section-label reveal">JUDGE_PROTOCOL</p>
+      <h2 id="protocol-heading" class="section-title reveal">评审协议 — 打分标准</h2>
+      <div class="rings-row reveal-stagger" id="rings-row">
+        <div class="ring-item glass ring-panel">
+          <span class="hud-meta hud-meta--tl">METRIC_A</span>
+          <span class="hud-meta hud-meta--br">40WT</span>
+          <svg class="ring-svg" viewBox="0 0 100 100" aria-hidden="true">
+            <circle class="ring-aura" cx="50" cy="50" r="45" fill="none" stroke-width="20" />
+            <circle class="ring-bg" cx="50" cy="50" r="45" />
+            <circle class="ring-fill" cx="50" cy="50" r="45" data-pct="0.4" />
+          </svg>
+          <p class="ring-label">创新意识</p>
+          <p class="ring-sublabel">Innovation</p>
+          <p class="ring-pct">40%</p>
+        </div>
+        <div class="ring-item glass ring-panel">
+          <span class="hud-meta hud-meta--tl">METRIC_B</span>
+          <span class="hud-meta hud-meta--br">30WT</span>
+          <svg class="ring-svg" viewBox="0 0 100 100" aria-hidden="true">
+            <circle class="ring-aura" cx="50" cy="50" r="45" fill="none" stroke-width="20" />
+            <circle class="ring-bg" cx="50" cy="50" r="45" />
+            <circle class="ring-fill" cx="50" cy="50" r="45" data-pct="0.3" />
+          </svg>
+          <p class="ring-label">趣味性</p>
+          <p class="ring-sublabel">Fun</p>
+          <p class="ring-pct">30%</p>
+        </div>
+        <div class="ring-item glass ring-panel">
+          <span class="hud-meta hud-meta--tl">METRIC_C</span>
+          <span class="hud-meta hud-meta--br">30WT</span>
+          <svg class="ring-svg" viewBox="0 0 100 100" aria-hidden="true">
+            <circle class="ring-aura" cx="50" cy="50" r="45" fill="none" stroke-width="20" />
+            <circle class="ring-bg" cx="50" cy="50" r="45" />
+            <circle class="ring-fill" cx="50" cy="50" r="45" data-pct="0.3" />
+          </svg>
+          <p class="ring-label">完成度</p>
+          <p class="ring-sublabel">Completion</p>
+          <p class="ring-pct">30%</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="submission-guide" aria-labelledby="submission-heading">
+      <p class="section-label reveal">SUBMISSION_GUIDE</p>
+      <h2 id="submission-heading" class="section-title reveal">投稿说明</h2>
+      <p class="guide-lead reveal">
+        现在，通往 10,000U 赏金的路径已经开启。阅读以下参与方式，确保你的创意能安全、完整地呈现。
+      </p>
+      <div class="guide-stack reveal-stagger">
+        <article class="guide-card glass">
+          <h3>一、投稿阵地：sundaycreative 空间</h3>
+          <p>发布至公司内部 sundaycreative 空间的指定活动看板。</p>
+        </article>
+        <article class="guide-card glass">
+          <h3>二、安全与合规（涉敏评估协议）</h3>
+          <p>AI 时代的创新必须建立在安全基石之上。在发布作品前，请务必进行自测：</p>
+          <p><strong>非敏感作品：</strong>若作品内容不涉及公司核心机密产品或数据，可自行部署上线，最后把上线地址发布于公司内部空间 sundaycreative。</p>
+          <p><strong>涉敏作品：</strong>若作品基于公司敏感产品逻辑或数据开发，严禁私自公网发布。</p>
+          <p><strong>动作：</strong>请将作品打包为本地文件。</p>
+          <p><strong>提交：</strong>统一私发汇总给 Lola。</p>
+          <p><strong>技术支持：</strong>如需在公司服务器进行闭环测试，可申请服务端团队协助挂载，确保在安全环境下完美运行。</p>
+        </article>
+        <article class="guide-card glass">
+          <h3>三、提交清单：Creator’s Log（创造者日志）</h3>
+          <p>我们奖励的不仅是结果，更是你驾驭 AI 的智慧。提交作品时，请附带一份精炼说明：</p>
+          <ol>
+            <li><strong>游戏名片：</strong>游戏名称及 300 字以内的核心卖点介绍。</li>
+            <li><strong>玩法说明：</strong>玩家如何操作？核心乐趣点在哪？</li>
+            <li><strong>AI 进化论：</strong>重点列出你在过程中使用的 AI 工具矩阵（例如：Gemini, Cursor, Midjourney 等）。</li>
+            <li><strong>协同过程：</strong>简述你如何利用 AI 完成了以往无法独立完成的任务（例如：非研发人员如何通过 AI 调通代码，或原画师如何通过 AI 快速搭建关卡）。</li>
+          </ol>
+        </article>
+        <article class="guide-card glass">
+          <h3>四、关键时刻 (Countdown)</h3>
+          <p><strong>开启时间：</strong>即刻开启，全员进入「觉醒模式」。</p>
+          <p><strong>截稿日期：</strong>2026 年 4 月 26 日 23:59。</p>
+          <p><strong>评选时刻：</strong>4 月底，根据创新、好玩、完成度三大维度，揭晓 10,000U 最终归属。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="cta-block reveal" id="cta" aria-labelledby="cta-heading">
+      <h2 id="cta-heading" class="visually-hidden">行动召唤</h2>
+      <p class="cta-copy">
+        别问能不能做，问问你的 AI。4月26日前，用作品证明你的进化。
+      </p>
+      <div class="cta-btn-wrap">
+        <a
+          class="cta-btn"
+          href="https://sundaycreative.atlassian.net/wiki/spaces/AI/folder/270106670?atlOrigin=eyJpIjoiMzY2NDVkNDhhN2FhNDJlYWI4NjI2Y2RmZGI3Mzc4NGQiLCJwIjoiYyJ9"
+          target="_blank"
+          rel="noopener noreferrer"
+        >接受协议 &amp; 提交挑战</a>
+      </div>
+      <p class="footer-note">AI_GAME_2026 // <span>PROTOCOL_ACTIVE</span></p>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      var video = document.querySelector("#hero video");
+      if (video) {
+        video.setAttribute("playsinline", "");
+        video.setAttribute("webkit-playsinline", "");
+        var tryPlay = function () {
+          var p = video.play();
+          if (p && typeof p.catch === "function") p.catch(function () {});
+        };
+        tryPlay();
+        document.addEventListener("visibilitychange", function () {
+          if (!document.hidden) tryPlay();
+        });
+      }
+    })();
+
+    (function () {
+      var canvas = document.getElementById("code-canvas");
+      var hero = document.getElementById("hero");
+      if (!canvas || !hero) return;
+      var ctx = canvas.getContext("2d", { alpha: true });
+      var chars = "01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン{}[]<>/\\;:*#$_";
+      var particles = [];
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      var w = 0;
+      var h = 0;
+
+      function resize() {
+        w = Math.max(1, hero.offsetWidth);
+        h = Math.max(1, hero.offsetHeight);
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.floor(w * dpr);
+        canvas.height = Math.floor(h * dpr);
+        canvas.style.width = w + "px";
+        canvas.style.height = h + "px";
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      function spawn() {
+        if (particles.length > 80) return;
+        var roll = Math.random();
+        var color = "#00f0ff";
+        if (roll < 0.07) color = "#ff007f";
+        else if (roll < 0.1) color = "#ffb020";
+        particles.push({
+          x: Math.random() * w,
+          y: h + Math.random() * 40,
+          speed: 0.4 + Math.random() * 1.2,
+          size: 10 + Math.random() * 14,
+          char: chars[Math.floor(Math.random() * chars.length)],
+          life: 1,
+          drift: (Math.random() - 0.5) * 0.35,
+          color: color
+        });
+      }
+
+      function tick() {
+        ctx.clearRect(0, 0, w, h);
+        if (Math.random() < 0.35) spawn();
+
+        ctx.font = "600 13px ui-monospace, Menlo, monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        for (var i = particles.length - 1; i >= 0; i--) {
+          var p = particles[i];
+          p.y -= p.speed;
+          p.x += p.drift;
+          p.life -= 0.0025;
+          if (p.y < -30 || p.life <= 0) {
+            particles.splice(i, 1);
+            continue;
+          }
+          ctx.globalAlpha = p.life * 0.85;
+          ctx.fillStyle = p.color || "#00f0ff";
+          ctx.fillText(p.char, p.x, p.y);
+        }
+        ctx.globalAlpha = 1;
+        requestAnimationFrame(tick);
+      }
+
+      resize();
+      window.addEventListener("resize", resize);
+      if (typeof ResizeObserver !== "undefined") {
+        new ResizeObserver(resize).observe(hero);
+      }
+      requestAnimationFrame(tick);
+    })();
+
+    (function () {
+      var observer = new IntersectionObserver(
+        function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("visible");
+              if (entry.target.id === "rings-row") {
+                entry.target.querySelectorAll(".ring-item").forEach(function (el) {
+                  el.classList.add("visible");
+                });
+              }
+            }
+          });
+        },
+        { root: null, rootMargin: "0px 0px -8% 0px", threshold: 0.12 }
+      );
+
+      document.querySelectorAll(".reveal, .reveal-stagger").forEach(function (el) {
+        observer.observe(el);
+      });
+
+      document.querySelectorAll("#rings-row .ring-fill").forEach(function (circle) {
+        var pct = parseFloat(circle.getAttribute("data-pct")) || 0;
+        var r = parseFloat(circle.getAttribute("r")) || 45;
+        var circumference = 2 * Math.PI * r;
+        circle.style.setProperty("--circ", String(circumference));
+        circle.style.setProperty("--offset", String(circumference * (1 - pct)));
+      });
+
+      document.getElementById("hero").classList.add("visible");
+    })();
+
+  </script>
+</body>
+</html>
