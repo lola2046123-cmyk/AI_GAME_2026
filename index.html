@@ -1,1136 +1,1333 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#121212" />
-  <title>AI_GAME_2026 — AI 游戏设计大赛</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet" />
-  <style>
-    :root {
-      --cyan: #00f0ff;
-      --cyan-soft: #00e5e5;
-      --cyan-dim: rgba(0, 240, 255, 0.5);
-      --cyan-glow: rgba(0, 240, 255, 0.35);
-      --pink: #ff007f;
-      --pink-dim: rgba(255, 0, 127, 0.55);
-      --amber: #ffb020;
-      --amber-dim: rgba(255, 176, 32, 0.45);
-      --metal: #1a1a1a;
-      --charcoal: #121212;
-      --text: #dceef2;
-      --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-      --section-y: clamp(3.25rem, 9vh, 7rem);
-      --section-x: clamp(1.25rem, 4vw, 3rem);
-      --line-subtle: rgba(0, 240, 255, 0.08);
-      --noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.055'/%3E%3C/svg%3E");
-    }
-
-    *, *::before, *::after {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    html {
-      scroll-behavior: smooth;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      html {
-        scroll-behavior: auto;
-      }
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", ui-sans-serif, system-ui, monospace;
-      background: var(--charcoal);
-      color: var(--text);
-      line-height: 1.58;
-      min-height: 100vh;
-      overflow-x: hidden;
-      text-rendering: optimizeLegibility;
-    }
-
-    ::selection {
-      background: rgba(0, 240, 255, 0.28);
-      color: #fff;
-    }
-
-    /* 视频与粒子仅存在于首屏 .hero 内；滚动后为纯色页面 */
-    .hero-media {
-      position: absolute;
-      inset: 0;
-      z-index: 0;
-      overflow: hidden;
-      background: var(--metal);
-      min-height: 100%;
-    }
-
-    /* 任意视口宽高比：铺满容器、居中裁切，不拉伸变形 */
-    .hero-media video {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      object-position: center center;
-      z-index: 1;
-      pointer-events: none;
-      filter: saturate(1.05) contrast(1.08);
-    }
-
-    /* 与下方静态区同色衔接，消除硬切断层 */
-    .hero-edge-blend {
-      position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 5;
-      height: clamp(64px, 22vmin, 320px);
-      pointer-events: none;
-      background: linear-gradient(
-        to bottom,
-        rgba(18, 18, 18, 0) 0%,
-        rgba(18, 18, 18, 0.06) 18%,
-        rgba(18, 18, 18, 0.38) 52%,
-        rgba(18, 18, 18, 0.88) 85%,
-        var(--charcoal) 100%
-      );
-    }
-
-    .hero-media #code-canvas {
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 3;
-      pointer-events: none;
-      opacity: 0.28;
-      mix-blend-mode: screen;
-      mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.35) 28%, black 48%);
-      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.35) 28%, black 48%);
-    }
-
-    .hero-media .video-overlay {
-      position: absolute;
-      inset: 0;
-      z-index: 2;
-      /* 上半更透，露出视频内数字/屏幕；向下渐暗便于底部文案阅读 */
-      background:
-        linear-gradient(180deg, rgba(10, 12, 16, 0.25) 0%, rgba(10, 12, 16, 0.2) 38%, rgba(18, 20, 24, 0.72) 62%, rgba(14, 16, 20, 0.88) 100%);
-      pointer-events: none;
-    }
-
-    .hero-media .video-overlay::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: var(--noise);
-      opacity: 0.9;
-      mix-blend-mode: overlay;
-      pointer-events: none;
-    }
-
-    main {
-      position: relative;
-      z-index: 0;
-      background: var(--charcoal);
-    }
-
-    section {
-      position: relative;
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: var(--section-y) var(--section-x);
-      scroll-margin-top: 1.25rem;
-    }
-
-    main > section:not(.hero) {
-      border-top: 1px solid var(--line-subtle);
-    }
-
-    /* Scroll reveal */
-    .reveal {
-      opacity: 0;
-      transform: translateY(36px);
-      transition: opacity 0.85s var(--ease-out), transform 0.85s var(--ease-out);
-    }
-
-    .reveal.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    .reveal-stagger > * {
-      opacity: 0;
-      transform: translateY(28px);
-      transition: opacity 0.75s var(--ease-out), transform 0.75s var(--ease-out);
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .reveal,
-      .reveal.visible,
-      .reveal-stagger > *,
-      .reveal-stagger.visible > * {
-        opacity: 1 !important;
-        transform: none !important;
-        transition: none !important;
-      }
-
-      .ring-fill {
-        transition: none !important;
-      }
-
-      .reward-card--champion .reward-amount::after,
-      .cta-btn::after {
-        display: none !important;
-      }
-    }
-
-    .reveal-stagger.visible > *:nth-child(1) { transition-delay: 0.05s; }
-    .reveal-stagger.visible > *:nth-child(2) { transition-delay: 0.12s; }
-    .reveal-stagger.visible > *:nth-child(3) { transition-delay: 0.19s; }
-    .reveal-stagger.visible > *:nth-child(4) { transition-delay: 0.26s; }
-    .reveal-stagger.visible > *:nth-child(5) { transition-delay: 0.33s; }
-    .reveal-stagger.visible > *:nth-child(6) { transition-delay: 0.4s; }
-    .reveal-stagger.visible > *:nth-child(7) { transition-delay: 0.47s; }
-    .reveal-stagger.visible > *:nth-child(8) { transition-delay: 0.54s; }
-
-    .reveal-stagger.visible > * {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    /*
-      Hero 必须突破全局 section 的 max-width:1200px 与左右 padding，
-      否则宽屏下视频只有 1200px 宽、两侧露底色（与素材 1280/1920 无关，是布局限制）。
-    */
-    .hero {
-      position: relative;
-      overflow: hidden;
-      isolation: isolate;
-      max-width: none;
-      width: 100%;
-      margin-inline: 0;
-      padding-left: 0;
-      padding-right: 0;
-      min-height: 100vh;
-      min-height: 100svh;
-      min-height: 100dvh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-      text-align: center;
-      padding-top: env(safe-area-inset-top, 0);
-      padding-bottom: max(env(safe-area-inset-bottom, 0), clamp(1.25rem, 5vh, 3rem));
-    }
-
-    .hero-spacer {
-      position: relative;
-      z-index: 6;
-      flex-shrink: 0;
-      width: 100%;
-      min-height: clamp(280px, 58vh, 720px);
-      pointer-events: none;
-    }
-
-    .hero-copy {
-      position: relative;
-      z-index: 6;
-      width: 100%;
-      max-width: 52rem;
-      margin: 0 auto;
-      margin-top: clamp(0.75rem, 3vh, 2rem);
-      padding: 0 clamp(1rem, 4vw, 2rem);
-    }
-
-    .hero-title {
-      margin-top: 0;
-      margin-inline: auto;
-      max-width: 14em;
-      font-size: clamp(2.7rem, 8.4vw, 4.7rem);
-      font-weight: 700;
-      line-height: 1.15;
-      letter-spacing: 0.04em;
-      text-transform: none;
-      color: rgba(248, 252, 255, 0.95);
-      text-shadow:
-        0 0 20px var(--cyan-glow),
-        0 0 40px rgba(0, 240, 255, 0.15);
-      text-wrap: balance;
-    }
-
-    .deadline-clock {
-      margin-top: clamp(1.75rem, 4vh, 2.5rem);
-      margin-inline: auto;
-      display: inline-block;
-      text-align: left;
-      font-family: "Share Tech Mono", ui-monospace, "SF Mono", Menlo, monospace;
-      font-size: clamp(0.8rem, 1.7vw, 1.05rem);
-      padding: 0.85rem 1.5rem;
-      border: 1px solid rgba(0, 240, 255, 0.35);
-      border-radius: 2px;
-      background: rgba(14, 18, 22, 0.72);
-      box-shadow:
-        inset 0 0 28px rgba(0, 240, 255, 0.06),
-        0 0 32px rgba(0, 240, 255, 0.12);
-      color: var(--cyan-soft);
-      letter-spacing: 0.12em;
-    }
-
-    .deadline-clock .label {
-      display: block;
-      font-size: 0.62em;
-      letter-spacing: 0.22em;
-      color: var(--amber);
-      margin-bottom: 0.4rem;
-      text-shadow: 0 0 10px var(--amber-dim);
-    }
-
-    /* Section titles */
-    .section-label {
-      font-size: 0.7rem;
-      font-family: "Share Tech Mono", monospace;
-      letter-spacing: 0.38em;
-      color: rgba(0, 240, 255, 0.82);
-      margin-bottom: 0.65rem;
-      text-transform: uppercase;
-      text-shadow: 0 0 16px var(--cyan-glow);
-    }
-
-    .section-title {
-      font-size: clamp(1.5rem, 3.5vw, 2.25rem);
-      font-weight: 600;
-      line-height: 1.28;
-      letter-spacing: 0.02em;
-      margin-bottom: clamp(1.75rem, 4vh, 2.5rem);
-      color: rgba(255, 255, 255, 0.96);
-      text-wrap: balance;
-    }
-
-    /* Industrial glass / HUD panels */
-    .glass {
-      position: relative;
-      background:
-        var(--noise),
-        linear-gradient(145deg, rgba(30, 36, 42, 0.55) 0%, rgba(18, 22, 28, 0.72) 100%);
-      background-size: 200px 200px, auto;
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      border: 1px solid rgba(0, 240, 255, 0.28);
-      border-radius: 4px;
-      box-shadow:
-        0 0 0 1px rgba(0, 0, 0, 0.35) inset,
-        0 10px 48px rgba(0, 0, 0, 0.55),
-        0 0 50px rgba(0, 240, 255, 0.06);
-      transition: transform 0.35s var(--ease-out), box-shadow 0.35s var(--ease-out), border-color 0.35s var(--ease-out);
-    }
-
-    .glass::before {
-      content: "";
-      position: absolute;
-      inset: 6px;
-      border: 1px solid rgba(0, 240, 255, 0.12);
-      border-radius: 2px;
-      pointer-events: none;
-    }
-
-    .glass::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      background:
-        linear-gradient(var(--cyan), var(--cyan)) left 10px top 10px / 14px 2px no-repeat,
-        linear-gradient(var(--cyan), var(--cyan)) left 10px top 10px / 2px 14px no-repeat,
-        linear-gradient(var(--cyan), var(--cyan)) right 10px top 10px / 14px 2px no-repeat,
-        linear-gradient(var(--cyan), var(--cyan)) right 10px top 10px / 2px 14px no-repeat,
-        linear-gradient(var(--cyan), var(--cyan)) left 10px bottom 10px / 14px 2px no-repeat,
-        linear-gradient(var(--cyan), var(--cyan)) left 10px bottom 10px / 2px 14px no-repeat,
-        linear-gradient(var(--cyan), var(--cyan)) right 10px bottom 10px / 14px 2px no-repeat,
-        linear-gradient(var(--cyan), var(--cyan)) right 10px bottom 10px / 2px 14px no-repeat;
-      opacity: 0.65;
-      pointer-events: none;
-    }
-
-    .hud-meta {
-      position: absolute;
-      font-family: "Share Tech Mono", monospace;
-      font-size: 0.5rem;
-      letter-spacing: 0.12em;
-      color: rgba(0, 240, 255, 0.35);
-      line-height: 1.2;
-      pointer-events: none;
-      z-index: 1;
-    }
-
-    .hud-meta--tl { top: 10px; left: 22px; text-align: left; }
-    .hud-meta--tr { top: 10px; right: 22px; text-align: right; color: rgba(255, 176, 32, 0.4); }
-    .hud-meta--bl { bottom: 10px; left: 22px; text-align: left; }
-    .hud-meta--br { bottom: 10px; right: 22px; text-align: right; color: rgba(255, 0, 127, 0.35); }
-
-    .rewards-grid {
-      display: grid;
-      gap: 1.25rem;
-      grid-template-columns: 1fr;
-    }
-
-    @media (min-width: 900px) {
-      .rewards-grid {
-        grid-template-columns: 1fr 1.2fr 1fr;
-        grid-template-rows: auto auto;
-        align-items: stretch;
-      }
-
-      .rewards-grid > .reward-card:nth-child(1) {
-        grid-column: 1;
-        grid-row: 1;
-      }
-
-      .reward-card--champion {
-        grid-column: 2;
-        grid-row: 1;
-        max-width: none;
-        margin: 0;
-        min-height: 200px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-      }
-
-      .rewards-grid > .reward-card:nth-child(3) {
-        grid-column: 3;
-        grid-row: 1;
-      }
-
-      .rewards-grid > .sub-grid {
-        grid-column: 1 / -1;
-        grid-row: 2;
-      }
-    }
-
-    .reward-card {
-      padding: clamp(1.35rem, 3vw, 2.1rem);
-      padding-top: clamp(1.75rem, 3.5vw, 2.35rem);
-      text-align: center;
-    }
-
-    @media (hover: hover) and (pointer: fine) {
-      .reward-card:hover {
-        transform: translateY(-4px);
-        border-color: rgba(0, 240, 255, 0.45);
-        box-shadow:
-          0 0 0 1px rgba(0, 240, 255, 0.12) inset,
-          0 14px 52px rgba(0, 0, 0, 0.6),
-          0 0 72px rgba(0, 240, 255, 0.14);
-      }
-    }
-
-    .reward-card--champion {
-      grid-column: 1 / -1;
-      max-width: 520px;
-      margin: 0 auto;
-      width: 100%;
-      padding: clamp(1.85rem, 4vw, 2.85rem);
-      padding-top: clamp(2.25rem, 4.5vw, 3rem);
-      border-color: rgba(0, 240, 255, 0.5);
-      box-shadow:
-        0 0 0 1px rgba(255, 176, 32, 0.15) inset,
-        0 0 70px rgba(0, 240, 255, 0.2),
-        0 0 110px rgba(255, 176, 32, 0.08);
-    }
-
-    .reward-role {
-      font-size: 0.72rem;
-      font-family: "Share Tech Mono", monospace;
-      letter-spacing: 0.22em;
-      color: rgba(0, 240, 255, 0.55);
-      text-transform: uppercase;
-      margin-bottom: 0.55rem;
-    }
-
-    .reward-amount {
-      font-family: "Share Tech Mono", monospace;
-      font-size: clamp(1.65rem, 4vw, 2.45rem);
-      font-weight: 400;
-      color: var(--cyan);
-      text-shadow:
-        0 0 16px var(--cyan-dim),
-        0 0 40px var(--cyan-glow);
-      filter: drop-shadow(0 0 6px rgba(0, 240, 255, 0.35));
-    }
-
-    .reward-card--champion .reward-amount {
-      position: relative;
-      display: inline-block;
-      overflow: hidden;
-      padding: 0 0.08em;
-      font-size: clamp(2.1rem, 5vw, 3.1rem);
-      color: var(--cyan-soft);
-      text-shadow:
-        0 0 20px var(--cyan-dim),
-        0 0 50px rgba(0, 240, 255, 0.45),
-        0 0 90px rgba(255, 176, 32, 0.2);
-    }
-
-    .reward-card--champion .reward-amount::after {
-      content: "";
-      position: absolute;
-      top: 0;
-      left: -120%;
-      width: 65%;
-      height: 100%;
-      background: linear-gradient(
-        105deg,
-        transparent 0%,
-        rgba(255, 255, 255, 0.15) 28%,
-        rgba(255, 255, 255, 0.95) 46%,
-        rgba(200, 255, 255, 0.85) 52%,
-        rgba(255, 255, 255, 0.2) 68%,
-        transparent 100%
-      );
-      opacity: 0;
-      pointer-events: none;
-      mix-blend-mode: overlay;
-    }
-
-    @media (hover: hover) and (pointer: fine) {
-      .reward-card--champion:hover .reward-amount::after {
-        opacity: 1;
-        animation: scan-sweep-strong 1s ease-out forwards;
-      }
-    }
-
-    .sub-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 0.75rem;
-      margin-top: 1.5rem;
-    }
-
-    @media (max-width: 640px) {
-      .sub-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .sub-grid .reward-card {
-      padding: 1rem;
-    }
-
-    .sub-grid .reward-amount {
-      font-size: clamp(1.1rem, 3vw, 1.35rem);
-    }
-
-    .sub-grid > .reward-card {
-      opacity: 0;
-      transform: translateY(22px);
-      transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1), transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
-    }
-
-    .rewards-grid.visible .sub-grid > .reward-card:nth-child(1) { transition-delay: 0.38s; }
-    .rewards-grid.visible .sub-grid > .reward-card:nth-child(2) { transition-delay: 0.48s; }
-    .rewards-grid.visible .sub-grid > .reward-card:nth-child(3) { transition-delay: 0.58s; }
-
-    .rewards-grid.visible .sub-grid > .reward-card {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    /* Protocol / rings（避免 backdrop-filter 裁切 drop-shadow，圆环光效画在 SVG 内） */
-    #protocol {
-      overflow: visible;
-    }
-
-    .rings-row {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: clamp(2rem, 6vw, 4rem);
-      overflow: visible;
-      padding: clamp(1.25rem, 3vh, 2rem) clamp(0.5rem, 2vw, 1.25rem);
-    }
-
-    .ring-item {
-      text-align: center;
-      overflow: visible;
-    }
-
-    .ring-panel.glass {
-      overflow: visible;
-      -webkit-backdrop-filter: none;
-      backdrop-filter: none;
-      background:
-        var(--noise),
-        linear-gradient(145deg, rgba(28, 34, 42, 0.94) 0%, rgba(14, 18, 24, 0.96) 100%);
-      background-size: 200px 200px, auto;
-    }
-
-    .ring-svg {
-      width: clamp(140px, 28vw, 180px);
-      height: clamp(140px, 28vw, 180px);
-      overflow: visible;
-    }
-
-    .ring-aura {
-      stroke: var(--cyan);
-      opacity: 0.22;
-      pointer-events: none;
-    }
-
-    .ring-svg circle {
-      fill: none;
-      stroke-width: 8;
-      stroke-linecap: round;
-    }
-
-    .ring-bg {
-      stroke: rgba(0, 240, 255, 0.14);
-    }
-
-    .ring-fill {
-      stroke: var(--cyan);
-      stroke-dasharray: var(--circ, 282.74);
-      stroke-dashoffset: var(--circ, 282.74);
-      transform: rotate(-90deg);
-      transform-origin: 50% 50%;
-      transition: stroke-dashoffset 1.4s cubic-bezier(0.22, 1, 0.36, 1);
-    }
-
-    .ring-item.visible .ring-fill {
-      stroke-dashoffset: var(--offset);
-    }
-
-    .ring-label {
-      margin-top: 1rem;
-      font-size: 1rem;
-      font-weight: 600;
-      color: rgba(255, 255, 255, 0.96);
-    }
-
-    .ring-sublabel {
-      font-size: 0.85rem;
-      font-weight: 400;
-      opacity: 0.82;
-      color: rgba(200, 230, 235, 0.85);
-      margin-top: 0.15rem;
-    }
-
-    .ring-pct {
-      font-family: "Share Tech Mono", ui-monospace, monospace;
-      font-size: 0.9rem;
-      color: var(--cyan);
-      margin-top: 0.25rem;
-      text-shadow: 0 0 12px var(--cyan-glow);
-    }
-
-    .ring-panel {
-      position: relative;
-      padding: 2rem 1.35rem 1.5rem;
-      border-radius: 4px;
-    }
-
-    /* 投稿说明 */
-    .guide-lead {
-      text-align: left;
-      font-size: clamp(0.7rem, 1.47vw, 0.84rem);
-      line-height: 1.8;
-      color: rgba(230, 242, 245, 0.92);
-      margin-bottom: clamp(1.75rem, 4vh, 2.5rem);
-      max-width: 56rem;
-    }
-
-    .guide-stack {
-      display: flex;
-      flex-direction: column;
-      gap: 1.15rem;
-    }
-
-    .guide-card {
-      position: relative;
-      padding: clamp(1.2rem, 3vw, 1.65rem) clamp(1.15rem, 3vw, 1.5rem);
-      text-align: left;
-    }
-
-    .guide-card h3 {
-      font-size: clamp(1rem, 2.2vw, 1.15rem);
-      font-weight: 600;
-      color: var(--cyan);
-      letter-spacing: 0.06em;
-      margin-bottom: 0.85rem;
-      text-shadow: 0 0 14px var(--cyan-glow);
-    }
-
-    .guide-card p {
-      font-size: clamp(0.9rem, 1.6vw, 1rem);
-      line-height: 1.75;
-      color: rgba(220, 238, 242, 0.9);
-      margin-bottom: 0.65rem;
-    }
-
-    .guide-card p:last-child {
-      margin-bottom: 0;
-    }
-
-    .guide-card strong {
-      color: rgba(255, 255, 255, 0.94);
-      font-weight: 600;
-    }
-
-    .guide-card ol {
-      margin: 0.35rem 0 0;
-      padding-left: 1.35rem;
-    }
-
-    .guide-card li {
-      font-size: clamp(0.9rem, 1.6vw, 1rem);
-      line-height: 1.75;
-      color: rgba(220, 238, 242, 0.9);
-      margin-bottom: 0.75rem;
-    }
-
-    .guide-card li:last-child {
-      margin-bottom: 0;
-    }
-
-    /* CTA */
-    .cta-block {
-      text-align: center;
-      padding-bottom: clamp(4rem, 12vh, 8rem);
-    }
-
-    .cta-copy {
-      font-size: clamp(0.7rem, 1.54vw, 0.945rem);
-      line-height: 1.65;
-      max-width: 36rem;
-      margin: 0 auto 2.5rem;
-      color: rgba(220, 238, 242, 0.9);
-    }
-
-    .cta-btn-wrap {
-      display: inline-block;
-      position: relative;
-      overflow: hidden;
-      border-radius: 4px;
-    }
-
-    a.cta-btn {
-      text-decoration: none;
-    }
-
-    a.cta-btn:visited {
-      color: #061014;
-    }
-
-    a.cta-btn:focus-visible {
-      outline: 2px solid var(--cyan);
-      outline-offset: 4px;
-    }
-
-    a.cta-btn:focus:not(:focus-visible) {
-      outline: none;
-    }
-
-    .cta-btn {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: min(92vw, 420px);
-      padding: 1.15rem 2rem;
-      font-size: clamp(0.95rem, 2vw, 1.15rem);
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      color: #061014;
-      background: linear-gradient(180deg, var(--cyan) 0%, var(--cyan-soft) 100%);
-      border: 1px solid rgba(180, 255, 255, 0.5);
-      cursor: pointer;
-      font-family: inherit;
-      box-shadow:
-        0 0 28px rgba(0, 240, 255, 0.55),
-        0 0 64px rgba(0, 240, 255, 0.28),
-        inset 0 1px 0 rgba(255, 255, 255, 0.35);
-      transition: box-shadow 0.3s ease, transform 0.2s ease, filter 0.3s ease;
-    }
-
-    @media (hover: hover) and (pointer: fine) {
-      .cta-btn:hover {
-        box-shadow:
-          0 0 48px rgba(0, 240, 255, 0.75),
-          0 0 96px rgba(0, 240, 255, 0.35),
-          inset 0 1px 0 rgba(255, 255, 255, 0.45);
-        filter: brightness(1.06);
-        transform: scale(1.02);
-      }
-    }
-
-    .cta-btn:active {
-      transform: scale(0.98);
-    }
-
-    .cta-btn::after {
-      content: "";
-      position: absolute;
-      top: 0;
-      left: -120%;
-      width: 62%;
-      height: 100%;
-      background: linear-gradient(
-        105deg,
-        transparent 0%,
-        rgba(255, 255, 255, 0.12) 22%,
-        rgba(255, 255, 255, 0.55) 38%,
-        rgba(255, 255, 255, 1) 48%,
-        rgba(180, 255, 255, 0.9) 54%,
-        rgba(255, 255, 255, 0.45) 68%,
-        transparent 100%
-      );
-      opacity: 0;
-      pointer-events: none;
-      mix-blend-mode: soft-light;
-    }
-
-    @media (hover: hover) and (pointer: fine) {
-      .cta-btn-wrap:hover .cta-btn::after {
-        opacity: 1;
-        animation: scan-sweep-strong 0.95s ease-out forwards;
-      }
-    }
-
-    @keyframes scan-sweep-strong {
-      0% { left: -120%; }
-      100% { left: 160%; }
-    }
-
-    .footer-note {
-      margin-top: 2rem;
-      font-size: 0.65rem;
-      font-family: "Share Tech Mono", monospace;
-      letter-spacing: 0.22em;
-      color: rgba(0, 240, 255, 0.32);
-    }
-
-    .footer-note span {
-      color: rgba(255, 176, 32, 0.35);
-    }
-
-    .visually-hidden {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      padding: 0;
-      margin: -1px;
-      overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-      white-space: nowrap;
-      border: 0;
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Move Together｜兴趣小组团建活动</title>
+<meta name="description" content="兴趣小组团建活动介绍：徒步登山、篮球、羽毛球与网球、Pickleball / 壁球、城市跑步、乒乓球。">
+
+<!-- ============================================================
+     配置区：预算表格链接
+     只需修改下面这一处，页面内所有「查看预算表格 ↗」都会同步更新。
+     ============================================================ -->
+<script>
+  const BUDGET_SHEET_URL = "https://docs.google.com/spreadsheets/d/1krLsCC95TKZozcPveYKmk8ZiEK84hgO1VT5qfDgp6tY/edit?gid=91238445#gid=91238445";
+</script>
+
+<script>document.documentElement.classList.add("js");</script>
+<style>
+@font-face {
+  font-family: "DM Sans";
+  src: url("assets/fonts/DMSans.ttf") format("truetype");
+  font-weight: 100 1000;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --paper: #f6f4ee;
+  --paper-2: #edeae1;
+  --ink: #141614;
+  --ink-2: #4a4d47;
+  --mute: #a3a59c;
+  --line: #d9d6cb;
+  --green: #1f4a35;
+  --green-2: #2f6b4b;
+  --green-soft: #e3e9dd;
+  --ball: #d8e04c;
+  --r: 14px;
+  --pad: clamp(20px, 4vw, 56px);
+  --max: 1360px;
+  --latin: "DM Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --cjk: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--latin), var(--cjk);
+  font-size: 16px;
+  line-height: 1.8;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+img { display: block; width: 100%; height: 100%; object-fit: cover; }
+a { color: inherit; text-decoration: none; }
+ul, ol { list-style: none; }
+.wrap { max-width: var(--max); margin: 0 auto; padding: 0 var(--pad); }
+
+.label {
+  font-family: var(--latin), var(--cjk);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  line-height: 1.5;
+}
+.mute { color: var(--mute); }
+
+/* ---------- Nav ---------- */
+.nav {
+  position: sticky; top: 0; z-index: 20;
+  background: rgba(246, 244, 238, .92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid transparent;
+  transition: border-color .3s;
+}
+.nav.is-stuck { border-bottom-color: var(--line); }
+.nav-in {
+  display: flex; align-items: center; justify-content: space-between; gap: 24px;
+  height: 64px;
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; letter-spacing: .01em; white-space: nowrap; }
+.brand-mark {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--green);
+  position: relative; overflow: hidden; flex: none;
+}
+.brand-mark::after {
+  content: ""; position: absolute; left: -3px; top: 8px; width: 24px; height: 2px;
+  background: var(--paper); transform: rotate(-38deg);
+}
+.nav-links { display: flex; gap: clamp(14px, 2vw, 30px); font-size: 14px; white-space: nowrap; }
+.nav-links a { color: var(--ink-2); padding: 6px 0; position: relative; transition: color .2s; }
+.nav-links a:hover, .nav-links a.is-active { color: var(--ink); }
+.nav-links a::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
+  background: var(--ink); transform: scaleX(0); transform-origin: left; transition: transform .25s;
+}
+.nav-links a.is-active::after, .nav-links a:hover::after { transform: scaleX(1); }
+
+/* ---------- Hero ---------- */
+.hero { padding: clamp(28px, 5vw, 64px) 0 clamp(40px, 6vw, 88px); }
+.hero-top {
+  display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 24px; align-items: end;
+}
+.hero-meta { grid-column: 1 / span 4; display: flex; flex-direction: column; justify-content: space-between; align-self: stretch; }
+.hero-meta .rise { font-size: clamp(18px, 1.6vw, 22px); line-height: 1.45; font-weight: 500; margin-top: auto; max-width: 14em; }
+.hero-img { grid-column: 6 / span 7; aspect-ratio: 16 / 9; border-radius: var(--r); overflow: hidden; background: var(--green); }
+.hero h1 {
+  font-family: var(--latin);
+  font-weight: 500;
+  font-size: clamp(64px, 15.2vw, 232px);
+  line-height: .88;
+  letter-spacing: -.05em;
+  margin: clamp(24px, 3.4vw, 52px) 0 0 -0.04em;
+}
+.hero h1 .l2 { display: flex; align-items: flex-start; gap: .12em; }
+.hero h1 sup {
+  font-size: .2em; letter-spacing: 0; font-weight: 500; color: var(--mute);
+  line-height: 1; margin-top: .55em;
+}
+.hero-foot {
+  display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 24px; align-items: end;
+  margin-top: clamp(28px, 4vw, 56px);
+  padding-top: 24px; border-top: 1px solid var(--ink);
+}
+.hero-cn { grid-column: 1 / span 6; }
+.hero-cn h2 { font-size: clamp(26px, 3vw, 42px); font-weight: 600; letter-spacing: .06em; line-height: 1.3; }
+.hero-cn p { margin-top: 10px; color: var(--ink-2); font-size: 16px; letter-spacing: .04em; }
+.hero-stats { grid-column: 8 / span 5; display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.hero-stats b { display: block; font-family: var(--latin); font-weight: 500; font-size: clamp(30px, 3.2vw, 46px); line-height: 1; letter-spacing: -.03em; }
+.hero-stats span { display: block; margin-top: 10px; font-size: 13px; color: var(--ink-2); line-height: 1.5; letter-spacing: .04em; }
+
+/* ---------- Manifesto ---------- */
+.manifesto { padding: clamp(48px, 8vw, 120px) 0; border-top: 1px solid var(--line); }
+.manifesto-in { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 24px; }
+.manifesto .label { grid-column: 1 / span 3; padding-top: .9em; }
+.manifesto p.big {
+  grid-column: 4 / span 9;
+  font-size: clamp(24px, 3.3vw, 46px); line-height: 1.5; font-weight: 500; letter-spacing: .02em;
+}
+.manifesto p.big em { font-style: normal; color: var(--mute); }
+.index {
+  grid-column: 4 / span 9; margin-top: clamp(32px, 5vw, 64px);
+  border-top: 1px solid var(--ink);
+}
+.index a {
+  display: grid; grid-template-columns: 44px 30px 1.1fr 1fr auto; gap: 16px; align-items: baseline;
+  padding: 18px 0; border-bottom: 1px solid var(--line);
+  transition: padding .25s, color .25s;
+}
+.index a:hover { padding-left: 10px; color: var(--green-2); }
+.index .n { font-family: var(--latin); font-size: 13px; color: var(--mute); }
+.index .t { font-size: clamp(18px, 1.7vw, 22px); font-weight: 600; letter-spacing: .04em; }
+.index .e { font-family: var(--latin); font-size: 15px; color: var(--ink-2); }
+.index .s { font-size: 13px; color: var(--ink-2); white-space: nowrap; }
+.index .s.open { color: var(--green-2); }
+
+/* ---------- Activity ---------- */
+.act { padding: clamp(56px, 8vw, 128px) 0 clamp(40px, 5vw, 72px); border-top: 1px solid var(--line); scroll-margin-top: 64px; }
+.act-head { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 24px; align-items: end; }
+.act-head .idx { grid-column: 1 / span 12; font-family: var(--latin); font-size: 14px; font-weight: 500; letter-spacing: .04em; margin-bottom: clamp(12px, 2vw, 24px); }
+.act-head .idx span { color: var(--mute); }
+.act-head .idx { display: flex; align-items: center; gap: 14px; }
+.ico { width: 1em; height: 1em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.act-head .ico { font-size: 44px; color: var(--green-2); }
+.index .ico { font-size: 26px; color: var(--green-2); align-self: center; }
+.act-head h2 { grid-column: 1 / span 12; }
+.act-head .en {
+  display: block; font-family: var(--latin); font-weight: 500;
+  font-size: clamp(46px, 9.6vw, 148px); line-height: .92; letter-spacing: -.045em; margin-left: -.04em;
+}
+.act-head .en i { font-style: normal; color: var(--mute); }
+.act-head .sub {
+  grid-column: 1 / span 12;
+  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px;
+  margin-top: clamp(16px, 2vw, 28px); padding-top: 18px; border-top: 1px solid var(--ink);
+}
+.act-head .cn { font-size: clamp(22px, 2.3vw, 32px); font-weight: 600; letter-spacing: .08em; line-height: 1.3; }
+.act-head .tag { font-size: 14px; color: var(--ink-2); letter-spacing: .1em; }
+
+.act-body { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 24px; margin-top: clamp(28px, 4vw, 56px); align-items: start; }
+.ph { border-radius: var(--r); overflow: hidden; background: var(--paper-2); }
+.ph-main { grid-column: 1 / span 5; aspect-ratio: 3 / 4; }
+.act-text { grid-column: 7 / span 6; }
+.act.flip .ph-main { grid-column: 8 / span 5; order: 2; }
+.act.flip .act-text { grid-column: 1 / span 6; order: 1; }
+
+.lead { font-size: clamp(20px, 2.1vw, 29px); line-height: 1.6; font-weight: 500; letter-spacing: .02em; }
+.lead em { font-style: normal; color: var(--mute); }
+.desc { margin-top: 22px; color: var(--ink-2); font-size: 16px; line-height: 1.9; letter-spacing: .02em; max-width: 36em; }
+
+.why { margin-top: clamp(28px, 3vw, 44px); display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.why li { border-top: 1px solid var(--ink); padding-top: 14px; }
+.why b { display: block; font-size: 16px; font-weight: 600; letter-spacing: .04em; line-height: 1.5; }
+.why span { display: block; margin-top: 6px; font-size: 14px; line-height: 1.75; color: var(--ink-2); }
+
+.facts { margin-top: clamp(28px, 3vw, 44px); border-top: 1px solid var(--line); }
+.facts div { display: grid; grid-template-columns: 7.5em 1fr; gap: 16px; padding: 13px 0; border-bottom: 1px solid var(--line); }
+.facts dt { font-size: 13px; color: var(--mute); letter-spacing: .1em; padding-top: 2px; }
+.facts dd { font-size: 15px; line-height: 1.7; letter-spacing: .02em; }
+.facts dd small { display: block; font-size: 13px; color: var(--ink-2); }
+.pill {
+  display: inline-block; font-size: 12px; line-height: 1; padding: 5px 9px; border-radius: 99px;
+  background: var(--green-soft); color: var(--green); margin-left: 8px; letter-spacing: .06em; vertical-align: 2px;
+}
+.pill.open { background: var(--ball); color: var(--ink); }
+
+/* ---------- Gear ---------- */
+.gear { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 24px; margin-top: clamp(40px, 6vw, 88px); align-items: start; }
+.gear-side { grid-column: 1 / span 4; }
+.gear-side h3 { font-size: clamp(22px, 2.2vw, 30px); font-weight: 600; letter-spacing: .08em; line-height: 1.3; }
+.gear-side h3 small { display: block; font-family: var(--latin); font-weight: 500; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--mute); margin-bottom: 8px; }
+.gear-side p { margin-top: 12px; font-size: 14px; line-height: 1.8; color: var(--ink-2); max-width: 24em; }
+.ph-sub { aspect-ratio: 4 / 3; margin-top: 24px; }
+.gear-list { grid-column: 6 / span 7; border-top: 1px solid var(--ink); }
+.gear-list li {
+  display: grid; grid-template-columns: 2.2em 9.5em 1fr auto; gap: 14px; align-items: baseline;
+  padding: 15px 0; border-bottom: 1px solid var(--line);
+}
+.gear-list .g-n { font-family: var(--latin); font-size: 12px; color: var(--mute); }
+.gear-list .g-name { font-size: 16px; font-weight: 600; letter-spacing: .04em; line-height: 1.5; }
+.gear-list .g-use { font-size: 15px; color: var(--ink-2); line-height: 1.7; }
+.gear-list .g-src { font-size: 12px; letter-spacing: .08em; color: var(--mute); white-space: nowrap; }
+.gear-list .g-src.team { color: var(--green-2); }
+.gear-list .g-src.team::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--green-2); margin-right: 6px; vertical-align: 1px; }
+
+/* ---------- Budget link ---------- */
+.budget {
+  display: flex; align-items: center; justify-content: space-between; gap: 24px;
+  margin-top: clamp(36px, 5vw, 72px); padding: 22px 0;
+  border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink);
+  transition: background .25s, padding .25s, color .25s;
+}
+.budget .b-l { font-size: 13px; color: var(--ink-2); letter-spacing: .06em; line-height: 1.6; }
+.budget .b-t { font-size: clamp(20px, 2.2vw, 30px); font-weight: 600; letter-spacing: .06em; white-space: nowrap; }
+.budget .b-t i { font-style: normal; font-family: var(--latin); display: inline-block; margin-left: .25em; transition: transform .25s; }
+.budget:hover { background: var(--green); color: var(--paper); padding-left: 22px; padding-right: 22px; border-color: var(--green); }
+.budget:hover .b-l { color: rgba(246,244,238,.7); }
+.budget:hover .b-t i { transform: translate(3px, -3px); }
+
+/* ---------- Rules ---------- */
+.rules { padding: clamp(56px, 8vw, 128px) 0; border-top: 1px solid var(--line); scroll-margin-top: 64px; }
+.sec-head { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 24px; align-items: end; }
+.sec-head .label { grid-column: 1 / span 12; margin-bottom: clamp(12px, 2vw, 24px); }
+.sec-head h2 { grid-column: 1 / span 8; font-family: var(--latin); font-weight: 500; font-size: clamp(40px, 7vw, 104px); line-height: .95; letter-spacing: -.04em; margin-left: -.04em; }
+.sec-head h2 i { font-style: normal; color: var(--mute); }
+.sec-head .cn { grid-column: 9 / span 4; font-size: clamp(20px, 2vw, 28px); font-weight: 600; letter-spacing: .08em; text-align: right; line-height: 1.4; }
+.rule-list { margin-top: clamp(32px, 5vw, 64px); border-top: 1px solid var(--ink); }
+.rule-list li { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 24px; padding: 26px 0; border-bottom: 1px solid var(--line); align-items: baseline; }
+.rule-list .r-n { grid-column: 1 / span 1; font-family: var(--latin); font-size: 14px; color: var(--mute); }
+.rule-list .r-t { grid-column: 2 / span 4; font-size: clamp(19px, 1.9vw, 25px); font-weight: 600; letter-spacing: .06em; line-height: 1.45; }
+.rule-list .r-d { grid-column: 7 / span 6; font-size: 16px; color: var(--ink-2); line-height: 1.9; letter-spacing: .02em; }
+
+.safety { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 24px; margin-top: clamp(48px, 7vw, 96px); }
+.safety-col { grid-column: span 6; }
+.safety-col + .safety-col { padding-left: clamp(0px, 2vw, 32px); }
+.safety h3 { font-size: 20px; font-weight: 600; letter-spacing: .08em; padding-bottom: 14px; border-bottom: 1px solid var(--ink); }
+.safety h3 small { font-family: var(--latin); font-weight: 500; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--mute); margin-left: 10px; }
+.safety li { display: grid; grid-template-columns: 6.5em 1fr; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--line); font-size: 15px; line-height: 1.75; }
+.safety li b { font-weight: 600; letter-spacing: .04em; }
+.safety li span { color: var(--ink-2); }
+.safety .note { margin-top: 14px; font-size: 13px; color: var(--ink-2); line-height: 1.8; }
+
+/* ---------- Funding ---------- */
+.fund { background: var(--green); color: var(--paper); padding: clamp(56px, 8vw, 128px) 0; scroll-margin-top: 64px; }
+.fund .sec-head h2 i { color: rgba(246,244,238,.42); }
+.fund .label { color: rgba(246,244,238,.6); }
+.flow { margin-top: clamp(32px, 5vw, 64px); display: grid; grid-template-columns: repeat(5, 1fr); border-top: 1px solid rgba(246,244,238,.9); }
+.flow li { padding: 20px 20px 4px 0; border-right: 1px solid rgba(246,244,238,.2); }
+.flow li + li { padding-left: 20px; }
+.flow li:last-child { border-right: 0; padding-right: 0; }
+.flow .f-n { font-family: var(--latin); font-size: 13px; color: var(--ball); }
+.flow b { display: block; margin-top: 28px; font-size: clamp(18px, 1.7vw, 22px); font-weight: 600; letter-spacing: .06em; line-height: 1.4; }
+.flow span { display: block; margin-top: 8px; font-size: 14px; line-height: 1.75; color: rgba(246,244,238,.72); }
+.fund-rules { margin-top: clamp(40px, 6vw, 80px); display: grid; grid-template-columns: repeat(2, 1fr); column-gap: 48px; }
+.fund-rules li { display: grid; grid-template-columns: 6.5em 1fr; gap: 16px; padding: 16px 0; border-top: 1px solid rgba(246,244,238,.2); font-size: 15px; line-height: 1.8; }
+.fund-rules b { font-weight: 600; letter-spacing: .06em; }
+.fund-rules span { color: rgba(246,244,238,.78); }
+.fund .budget { border-color: rgba(246,244,238,.9); }
+.fund .budget .b-l { color: rgba(246,244,238,.7); }
+.fund .budget:hover { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+.fund .budget:hover .b-l { color: var(--ink-2); }
+
+/* ---------- Footer ---------- */
+.foot { padding: 36px 0 44px; }
+.foot-in { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px 24px; font-size: 13px; color: var(--ink-2); letter-spacing: .04em; }
+.foot b { font-family: var(--latin); font-weight: 500; color: var(--ink); }
+
+.print-only { display: none; }
+
+/* ============================================================
+   交互：整屏翻页版式（桌面）+ 入场动效
+   ============================================================ */
+:root { --e: cubic-bezier(.2, .7, .2, 1); --bounce: cubic-bezier(.34, 1.56, .64, 1); }
+.hero h1 .l1 { display: block; }
+.hero h1 .l2 .mask-in { display: flex; align-items: flex-start; gap: .12em; }
+.rail { display: none; }
+
+@media screen {
+  /* hover 小动效 */
+  .ph img { transition: transform 1.4s var(--e); }
+  .ph:hover img { transform: scale(1.045); }
+  .gear-list li { transition: padding .3s var(--e); }
+  .gear-list li:hover { padding-left: 10px; }
+  .gear-list li:hover .g-name { color: var(--green-2); }
+  .gear-list .g-name { transition: color .3s; }
+  .act-head .ico { transition: transform .5s var(--bounce); }
+  .act-head .idx:hover .ico { transform: rotate(-14deg) scale(1.15); }
+  .index a:hover .ico { animation: hop .5s var(--e); }
+  .why li { transition: border-color .3s; }
+  .why li:hover { border-top-color: var(--green-2); }
+  .why li:hover b { color: var(--green-2); }
+  .flow li:hover .f-n { transform: translateY(-3px); }
+  .flow .f-n { display: inline-block; transition: transform .3s var(--bounce); }
+  .brand:hover .brand-mark { transform: rotate(180deg); }
+  .brand-mark { transition: transform .6s var(--e); }
+  @keyframes hop { 0% { transform: none; } 40% { transform: translateY(-5px) rotate(-10deg); } 100% { transform: none; } }
+
+  /* 入场动效（仅在 JS 可用时启用） */
+  .js .rv { opacity: 0; transform: translateY(22px); transition: opacity .7s var(--e), transform .7s var(--e); transition-delay: calc(var(--i, 0) * 55ms + 120ms); }
+  .js .in .rv { opacity: 1; transform: none; }
+  .js .mask { display: block; clip-path: inset(-.12em -.1em -.24em -.1em); }
+  .js .mask-in { display: block; transform: translateY(118%); transition: transform .95s var(--e); transition-delay: calc(var(--i, 0) * 90ms + 60ms); }
+  .js .in .mask-in { transform: none; }
+  .js [data-screen] .ph, .js .hero-img { clip-path: inset(0 0 100% 0 round var(--r)); transition: clip-path 1.05s var(--e) .15s; }
+  .js .in .ph, .js .in .hero-img { clip-path: inset(0 0 0 0 round var(--r)); }
+  .js [data-screen] .ph img, .js .hero-img img { transform: scale(1.18); }
+  .js .in .ph img, .js .in .hero-img img { transform: none; }
+  .js .in .ph:hover img { transform: scale(1.045); }
+  .js [data-screen] .act-head .ico { stroke-dasharray: 1; stroke-dashoffset: 1; }
+  .js .in .act-head .ico { stroke-dashoffset: 0; transition: stroke-dashoffset 1.2s ease .25s, transform .5s var(--bounce); }
+  .hero-img { will-change: transform; }
+}
+
+@media screen and (min-width: 1021px) {
+  html.paged { scroll-behavior: auto; }
+
+  /* 每一屏 = 视口高度（减去导航） */
+  .hero, .manifesto, .fund, .scr-in {
+    min-height: calc(100vh - 64px);
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .hero > .wrap, .fund > .wrap { width: 100%; }
+  .manifesto-in { width: 100%; }
+
+  .hero { padding: 3vh 0 4vh; }
+  .hero-img { aspect-ratio: auto; height: 28vh; }
+  .hero h1 { font-size: min(15.2vw, 19vh); margin-top: 3vh; }
+  .hero-foot { margin-top: 3vh; padding-top: 2.4vh; }
+
+  .manifesto { padding: 4vh 0; }
+  .manifesto p.big, .index { zoom: var(--k, 1); }
+  .index { margin-top: min(64px, 5vh); }
+
+  .act, .rules { padding: 0; }
+  .scr-in { padding: 3.2vh 0 4.4vh; }
+  .scr-a { justify-content: flex-start; }
+  .act-head .idx { margin-bottom: 1.2vh; }
+  .act-head .en { font-size: min(9.6vw, 11.5vh); }
+  .act-head .sub { margin-top: 1.8vh; padding-top: 1.6vh; }
+  .scr-a .act-body { flex: 1; margin-top: 3vh; align-items: stretch; }
+  .ph-main, .act.flip .ph-main { aspect-ratio: auto; position: relative; min-height: 260px; }
+  .ph-main { grid-column: 1 / span 4; }
+  .act.flip .ph-main { grid-column: 9 / span 4; }
+  .ph-main img { position: absolute; inset: 0; }
+  .act-text { grid-column: 6 / span 7; }
+  .act.flip .act-text { grid-column: 1 / span 7; }
+  .act-text {
+    zoom: var(--k, 1);
+    display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 5fr); column-gap: 44px; row-gap: 0;
+    align-content: space-between;
+  }
+  .act-text .lead, .act-text .desc { grid-column: 1 / -1; }
+  .act-text .lead { font-size: 27px; }
+  .act-text .desc { max-width: none; margin-top: 16px; }
+  .act-text .why { grid-template-columns: 1fr; gap: 0; margin-top: 30px; align-content: start; }
+  .act-text .why li { padding: 12px 0 14px; }
+  .act-text .why li + li { border-top-color: var(--line); }
+  .act-text .facts { margin-top: 30px; border-top-color: var(--ink); align-self: start; }
+  .act-text .facts div { padding: 11px 0; grid-template-columns: 5.5em 1fr; }
+
+  .scr-b .gear { margin-top: 0; zoom: var(--k, 1); }
+  .scr-b .budget { margin-top: 5vh; }
+
+  .scr-r .rule-list { zoom: var(--k, 1); margin-top: 4vh; }
+  .scr-s .safety { margin-top: 0; zoom: var(--k, 1); }
+  .scr-s .safety li { font-size: 17px; padding: 20px 0; grid-template-columns: 8em 1fr; }
+  .scr-s .safety h3 { font-size: 24px; padding-bottom: 18px; }
+
+  .fund { padding: 4vh 0; }
+  .fund .flow, .fund .fund-rules { zoom: var(--k, 1); }
+  .fund .flow { margin-top: 4vh; }
+  .fund .fund-rules { margin-top: 5vh; }
+  .fund .budget { margin-top: 5vh; }
+
+  /* 右侧进度：球场边线 + 一颗球 */
+  .rail {
+    display: block; position: fixed; z-index: 15; right: 18px; top: 50%; transform: translateY(-50%);
+    width: 22px; color: var(--ink);
+  }
+  .rail::before { content: ""; position: absolute; right: 4px; top: -10px; bottom: -10px; width: 1px; background: currentColor; opacity: .25; }
+  .rail button {
+    display: block; position: relative; width: 22px; height: 15px; border: 0; background: none; cursor: pointer; padding: 0; color: inherit;
+  }
+  .rail button::before {
+    content: ""; position: absolute; right: 4px; top: 7px; height: 1px; width: 5px; background: currentColor; opacity: .45;
+    transition: width .3s var(--e), opacity .3s;
+  }
+  .rail button.major::before { width: 9px; opacity: .8; }
+  .rail button:hover::before { width: 14px; opacity: 1; }
+  .rail button::after {
+    content: attr(data-label); position: absolute; right: 28px; top: 50%; transform: translate(6px, -50%);
+    white-space: nowrap; font-size: 12px; letter-spacing: .06em; line-height: 1; padding: 7px 10px; border-radius: 99px;
+    background: var(--ink); color: var(--paper); opacity: 0; pointer-events: none; transition: opacity .2s, transform .25s var(--e);
+  }
+  .rail button:hover::after { opacity: 1; transform: translate(0, -50%); }
+  .rail-ball {
+    position: absolute; right: -1px; top: 0; width: 11px; height: 11px; border-radius: 50%;
+    background: var(--ball); box-shadow: 0 0 0 1px var(--ink);
+    transition: top .6s var(--bounce); pointer-events: none;
+  }
+  .rail-ball.squash { animation: squash .6s ease; }
+  @keyframes squash { 0% { transform: scale(1); } 35% { transform: scale(.8, 1.3); } 70% { transform: scale(1.2, .82); } 100% { transform: scale(1); } }
+  .rail.on-dark { color: var(--paper); }
+  .rail.on-dark .rail-ball { box-shadow: none; }
+  .rail.on-dark button::after { background: var(--paper); color: var(--ink); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .js .rv, .js .mask-in, .js [data-screen] .ph, .js .hero-img, .js [data-screen] .ph img, .js .hero-img img { opacity: 1 !important; transform: none !important; clip-path: none !important; }
+  .js [data-screen] .act-head .ico { stroke-dashoffset: 0 !important; }
+}
+
+
+/* ---------- Responsive (screen only) ---------- */
+@media screen and (max-width: 1020px) {
+  .index { grid-column: 1 / -1; }
+  .manifesto .label { grid-column: 1 / -1; padding: 0 0 16px; }
+  .manifesto p.big { grid-column: 1 / -1; }
+  .why { grid-template-columns: 1fr; gap: 0; }
+  .why li { padding: 14px 0; }
+  .why li + li { border-top-color: var(--line); }
+  .gear-list li { grid-template-columns: 2em 1fr auto; }
+  .gear-list .g-n, .gear-list .g-name { grid-row: 1; }
+  .gear-list .g-src { grid-row: 1; grid-column: 3; }
+  .gear-list .g-use { grid-row: 2; grid-column: 2 / -1; }
+  .flow { grid-template-columns: repeat(2, 1fr); }
+  .flow li, .flow li + li { padding: 18px 16px 18px 0; border-right: 0; border-bottom: 1px solid rgba(246,244,238,.2); }
+  .flow b { margin-top: 10px; }
+}
+@media screen and (max-width: 760px) {
+  body { font-size: 15px; }
+  .nav-in { height: auto; flex-direction: column; align-items: stretch; gap: 0; padding-top: 12px; }
+  .nav-links { overflow-x: auto; gap: 22px; padding: 6px 0 10px; margin: 0 calc(var(--pad) * -1); padding-left: var(--pad); padding-right: var(--pad); scrollbar-width: none; }
+  .nav-links::-webkit-scrollbar { display: none; }
+  .act, .rules, .fund { scroll-margin-top: 84px; }
+
+  .hero-top, .hero-foot, .act-body, .gear, .sec-head, .safety { display: block; }
+  .hero-meta { flex-direction: row; align-items: flex-end; margin-bottom: 18px; }
+  .hero-meta .rise { margin: 0 0 0 auto; text-align: right; font-size: 16px; }
+  .hero-img { aspect-ratio: 4 / 3; }
+  .hero h1 { font-size: 21.5vw; margin-top: 22px; }
+  .hero-stats { margin-top: 28px; gap: 14px; }
+  .hero-stats span { font-size: 12px; }
+
+  .index a { grid-template-columns: 26px 26px 1fr auto; gap: 12px; }
+  .index .e { display: none; }
+
+  .act-head .en { font-size: 15.5vw; }
+  .ph-main { aspect-ratio: 4 / 5; margin-bottom: 28px; }
+  .facts div { grid-template-columns: 5.5em 1fr; }
+  .gear-side { margin-bottom: 24px; }
+  .ph-sub { margin-top: 18px; }
+  .budget { flex-direction: column; align-items: flex-start; gap: 6px; padding: 18px 0; }
+  .budget:hover { padding-left: 16px; padding-right: 16px; }
+
+  .sec-head .cn { text-align: left; margin-top: 14px; }
+  .rule-list li { display: block; padding: 20px 0; }
+  .rule-list .r-n, .rule-list .r-t, .rule-list .r-d { display: block; }
+  .rule-list .r-n { margin-bottom: 4px; }
+  .rule-list .r-d { margin-top: 8px; font-size: 15px; }
+  .safety-col + .safety-col { padding-left: 0; margin-top: 40px; }
+  .safety li, .fund-rules li { grid-template-columns: 5.5em 1fr; gap: 12px; }
+  .fund-rules { grid-template-columns: 1fr; }
+  .flow { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { transition: none !important; }
+}
+
+/* ============================================================
+   Print / PDF — A4
+   ============================================================ */
+@page { size: A4; margin: 0; }
+@media print {
+  html { font-size: 9pt; }
+  body { background: var(--paper); font-size: 9pt; line-height: 1.7; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .nav, .foot, .rail, .screen-only { display: none !important; }
+  .scr-in { display: contents; }
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+  .ph img, .hero-img, .hero-img img, .mask-in, .rv { transform: none !important; opacity: 1 !important; }
+  .ph, .hero-img, .mask { clip-path: none !important; }
+  .print-only { display: block; }
+  .wrap { max-width: none; padding: 0; }
+  .label { font-size: 7pt; }
+
+  /* 每个区块 = 一张 A4，内边距即页边距 */
+  .sheet {
+    height: 296.6mm; padding: 15mm 15mm 14mm; overflow: hidden;
+    display: flex; flex-direction: column;
+    break-after: page; break-inside: avoid; border: 0;
+    background: var(--paper);
+  }
+  .sheet:last-of-type { break-after: auto; }
+  .sheet > .wrap { flex: 1; display: flex; flex-direction: column; min-height: 0; width: 100%; }
+
+  /* cover */
+  .print-bar { display: flex; justify-content: space-between; align-items: center; padding-bottom: 9mm; font-size: 8pt; font-weight: 500; letter-spacing: .06em; }
+  .print-bar .brand { font-size: 9.5pt; }
+  .hero-top { column-gap: 5mm; }
+  .hero-meta { grid-column: 1 / span 4; }
+  .hero-meta .rise { font-size: 12pt; }
+  .hero-img { grid-column: 5 / span 8; border-radius: 3mm; }
+  .hero h1 { font-size: 130pt; margin-top: 18mm; }
+  .hero-foot { margin-top: auto; padding-top: 5mm; column-gap: 5mm; }
+  .hero-cn h2 { font-size: 20pt; }
+  .hero-cn p { font-size: 9.5pt; margin-top: 2mm; }
+  .hero-stats { gap: 5mm; }
+  .hero-stats b { font-size: 22pt; }
+  .hero-stats span { font-size: 7.5pt; margin-top: 2mm; }
+
+  /* manifesto page */
+  .manifesto-in { display: flex !important; }
+  .manifesto .label { padding: 0 0 12mm; }
+  .manifesto p.big { font-size: 23pt; line-height: 1.6; max-width: 150mm; }
+  .index { margin-top: auto; }
+  .index a { grid-template-columns: 10mm 8mm 1.1fr 1fr auto; padding: 5mm 0; }
+  .index .ico { font-size: 15pt; }
+  .act-head .ico { font-size: 25pt; }
+  .act-head .idx { gap: 3mm; }
+  .index .n { font-size: 8pt; } .index .t { font-size: 13pt; } .index .e { font-size: 10pt; } .index .s { font-size: 8.5pt; }
+  .print-note { margin-top: 12mm; font-size: 8pt; color: var(--ink-2); line-height: 1.8; }
+
+  /* activity */
+  .act-head { column-gap: 5mm; }
+  .act-head .idx { font-size: 8pt; margin-bottom: 3mm; }
+  .act-head .en { font-size: 50pt; }
+  .act-head .sub { margin-top: 4mm; padding-top: 3mm; }
+  .act-head .cn { font-size: 15pt; }
+  .act-head .tag { font-size: 8pt; }
+  .act-body { margin-top: 7mm; column-gap: 5mm; }
+  .ph { border-radius: 2.5mm; }
+  .ph-main { grid-column: 1 / span 5; }
+  .act-text { grid-column: 6 / span 7; padding-left: 3mm; }
+  .act.flip .ph-main { grid-column: 8 / span 5; }
+  .act.flip .act-text { grid-column: 1 / span 7; padding-left: 0; padding-right: 3mm; }
+  .lead { font-size: 12.5pt; line-height: 1.55; }
+  .desc { font-size: 9pt; margin-top: 3mm; line-height: 1.75; }
+  .why { margin-top: 4.5mm; gap: 3.5mm; }
+  .why li { padding-top: 2mm; }
+  .why b { font-size: 9pt; } .why span { font-size: 8pt; margin-top: 1mm; line-height: 1.6; }
+  .facts { margin-top: 4.5mm; }
+  .facts div { padding: 1.7mm 0; grid-template-columns: 5.5em 1fr; gap: 3mm; }
+  .facts dt { font-size: 7.6pt; padding-top: .4mm; } .facts dd { font-size: 8.8pt; line-height: 1.55; } .facts dd small { font-size: 7.8pt; }
+  .pill { font-size: 6.6pt; padding: 1mm 1.8mm; margin-left: 1.5mm; vertical-align: .4mm; }
+
+  .gear { margin-top: 9mm; column-gap: 5mm; }
+  .gear-side { grid-column: 1 / span 4; }
+  .gear-side h3 { font-size: 14pt; } .gear-side h3 small { font-size: 7pt; margin-bottom: 1mm; }
+  .gear-side p { font-size: 8.2pt; margin-top: 2mm; line-height: 1.65; }
+  .ph-sub { margin-top: 4mm; }
+  .gear-list { grid-column: 5 / span 8; margin-left: 3mm; }
+  .gear-list li { padding: 2.3mm 0; grid-template-columns: 1.8em 7.6em 1fr auto; gap: 2.5mm; }
+  .gear-list .g-n { font-size: 7.2pt; } .gear-list .g-name { font-size: 9.2pt; } .gear-list .g-use { font-size: 8.6pt; line-height: 1.55; } .gear-list .g-src { font-size: 7.4pt; }
+
+  .budget { margin-top: auto; padding: 3.8mm 0; }
+  .budget .b-l { font-size: 8pt; } .budget .b-t { font-size: 13pt; }
+
+  /* rules */
+  .sec-head { column-gap: 5mm; }
+  .sec-head .label { margin-bottom: 3mm; }
+  .sec-head h2 { font-size: 46pt; }
+  .sec-head .cn { font-size: 14pt; }
+  .rule-list { margin-top: 9mm; }
+  .rule-list li { padding: 6mm 0; column-gap: 5mm; }
+  .rule-list .r-n { font-size: 8pt; } .rule-list .r-t { font-size: 12pt; grid-column: 2 / span 4; } .rule-list .r-d { font-size: 9.4pt; grid-column: 6 / span 7; line-height: 1.8; }
+  .safety { margin-top: auto; column-gap: 8mm; }
+  .safety-col + .safety-col { padding-left: 0; }
+  .safety h3 { font-size: 11.5pt; padding-bottom: 2.5mm; } .safety h3 small { font-size: 7pt; }
+  .safety li { font-size: 9pt; padding: 3.4mm 0; grid-template-columns: 5.5em 1fr; gap: 3mm; line-height: 1.7; }
+
+  /* funding */
+  .fund.sheet { background: var(--green); }
+  .flow { margin-top: 12mm; }
+  .flow li { padding: 4mm 3mm 2mm 0; } .flow li + li { padding-left: 3mm; }
+  .flow .f-n { font-size: 8.5pt; } .flow b { font-size: 12pt; margin-top: 16mm; } .flow span { font-size: 8.6pt; margin-top: 2mm; line-height: 1.7; }
+  .fund-rules { margin-top: 22mm; column-gap: 8mm; }
+  .fund-rules li { font-size: 9.4pt; padding: 5mm 0; grid-template-columns: 5.5em 1fr; gap: 3mm; line-height: 1.75; }
+  .fund .budget { margin-top: auto; }
+  .print-foot { display: flex; justify-content: space-between; margin-top: 8mm; font-size: 7.5pt; letter-spacing: .06em; color: rgba(246,244,238,.6); }
+}
+</style>
 </head>
 <body>
-  <main>
-    <section class="hero reveal" id="hero">
-      <div class="hero-media" aria-hidden="true">
-        <video
-          src="hero-bg-ai-contest.mp4"
-          muted
-          loop
-          autoplay
-          playsinline
-          preload="auto"
-        ></video>
-        <div class="video-overlay"></div>
-        <canvas id="code-canvas" aria-hidden="true"></canvas>
-        <div class="hero-edge-blend" aria-hidden="true"></div>
+
+<!-- 运动图标：统一 24×24 线性图标，1.5 线宽 -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <symbol id="i-hiking" viewBox="0 0 24 24"><path pathLength="1" d="M2.5 19.5 9 7.5l3.6 6.2 2.6-3.9 6.3 9.7z"/><path pathLength="1" d="M7.2 10.9 9 12.6l1.9-1.8"/></symbol>
+  <symbol id="i-basketball" viewBox="0 0 24 24"><circle pathLength="1" cx="12" cy="12" r="9"/><path pathLength="1" d="M3 12h18M12 3v18"/><path pathLength="1" d="M5.7 5.6c3 3.4 3 9.4 0 12.8M18.3 5.6c-3 3.4-3 9.4 0 12.8"/></symbol>
+  <symbol id="i-racket" viewBox="0 0 24 24"><ellipse pathLength="1" cx="9.3" cy="9.3" rx="5.2" ry="6.8" transform="rotate(-45 9.3 9.3)"/><path pathLength="1" d="m13.6 13.6 6.9 6.9"/><path pathLength="1" d="M5.4 9.6 9.6 5.4M7.2 12.6l5.4-5.4M9.9 14.1l4.2-4.2"/><circle pathLength="1" cx="19" cy="5.5" r="1.8"/></symbol>
+  <symbol id="i-pickleball" viewBox="0 0 24 24"><rect pathLength="1" x="4" y="2.5" width="10.5" height="12.5" rx="4.2"/><path pathLength="1" d="M9.25 15v6.5"/><circle pathLength="1" cx="18.2" cy="16.8" r="3.3"/><path pathLength="1" d="M17.2 15.9h.01M19.3 16.2h.01M17.6 18h.01M19.4 18.1h.01" stroke-width="1.6"/></symbol>
+  <symbol id="i-running" viewBox="0 0 24 24"><path pathLength="1" d="M2.5 16.5v-5l3.2 1.2 4.1-5.2 2.4 2.3c1.300 2.200 3.400 3.100 6.200 3.600 1.900.3 3.100 1.300 3.100 3.100z"/><path pathLength="1" d="M2.500 19.500h19M9.200 10.800l1.800 1.600M11.000 9.300l1.800 1.600"/></symbol>
+  <symbol id="i-tabletennis" viewBox="0 0 24 24"><circle pathLength="1" cx="10" cy="9.500" r="6.800"/><path pathLength="1" d="m14.300 14.800 5.200 5.200M5.900 14.900c2.800 1.200 6.300.6 8.900-1.300"/><circle pathLength="1" cx="19.300" cy="5.200" r="1.700"/></symbol>
+</svg>
+
+<!-- ===== Nav ===== -->
+<nav class="nav" id="nav" aria-label="页面导航">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top"><span class="brand-mark"></span>兴趣小组 Club</a>
+    <div class="nav-links">
+      <a href="#hiking">徒步登山</a>
+      <a href="#basketball">篮球</a>
+      <a href="#racket">羽毛球 &amp; 网球</a>
+      <a href="#pickleball">Pickleball / 壁球</a>
+      <a href="#running">城市跑步</a>
+      <a href="#tabletennis">乒乓球</a>
+      <a href="#rules">组织规则</a>
+      <a href="#fund">经费</a>
+    </div>
+  </div>
+</nav>
+
+<main id="top">
+
+<!-- ===== Hero ===== -->
+<header class="hero sheet" data-screen="首页">
+  <div class="wrap">
+    <div class="print-only print-bar">
+      <span class="brand"><span class="brand-mark"></span>兴趣小组 Club</span>
+      <span class="mute">内部资料 · Osaka</span>
+    </div>
+    <div class="hero-top">
+      <div class="hero-meta">
+        <span class="label mute">©2026 — Osaka<br>Team Activities</span>
+        <p class="rise">六个兴趣小组，<br>下班以后，球场和山里见。</p>
       </div>
-      <div class="hero-spacer" aria-hidden="true"></div>
-      <div class="hero-copy">
-        <h1 class="hero-title">AI 游戏设计大赛</h1>
-        <div class="deadline-clock" role="status">
-          <span class="label">DEADLINE // 投稿截止</span>
-          <span>投稿截止日期: 2026.04.26</span>
-        </div>
+      <figure class="hero-img">
+        <img src="assets/img/hero-stilllife.jpg" alt="绿色球场上摆放的篮球、网球拍、羽毛球、匹克球拍、跑鞋与登山杖" width="1280" height="720">
+      </figure>
+    </div>
+
+    <h1>
+      <span class="l1">Move</span>
+      <span class="l2">Together<sup>©</sup></span>
+    </h1>
+
+    <div class="hero-foot">
+      <div class="hero-cn">
+        <h2>兴趣小组团建活动</h2>
+        <p>让兴趣成为连接团队的方式。</p>
       </div>
-    </section>
-
-    <section id="rewards" aria-labelledby="rewards-heading">
-      <p class="section-label reveal">BOUNTY_TIERS</p>
-      <h2 id="rewards-heading" class="section-title reveal">奖励阶梯 — 赏金卡片</h2>
-      <div class="rewards-grid reveal-stagger" id="rewards-grid">
-        <article class="reward-card glass">
-          <span class="hud-meta hud-meta--tl">X:-12.4 Y:+09.1</span>
-          <span class="hud-meta hud-meta--tr">SYNC</span>
-          <span class="hud-meta hud-meta--bl">TIER_B</span>
-          <span class="hud-meta hud-meta--br">v2.1</span>
-          <p class="reward-role">第二名 · 拓荒者</p>
-          <p class="reward-amount">5,000 U</p>
-        </article>
-        <article class="reward-card glass reward-card--champion">
-          <span class="hud-meta hud-meta--tl">HANGAR_MAIN // PRIZE</span>
-          <span class="hud-meta hud-meta--tr">PWR ●</span>
-          <span class="hud-meta hud-meta--bl">COORD 00.00.00</span>
-          <span class="hud-meta hud-meta--br">SIG_OK</span>
-          <p class="reward-role">第一名 · 领航者</p>
-          <p class="reward-amount">10,000 U</p>
-        </article>
-        <article class="reward-card glass">
-          <span class="hud-meta hud-meta--tl">X:-08.0 Y:+09.1</span>
-          <span class="hud-meta hud-meta--tr">SYNC</span>
-          <span class="hud-meta hud-meta--bl">TIER_C</span>
-          <span class="hud-meta hud-meta--br">v2.1</span>
-          <p class="reward-role">第三名 · 拓荒者</p>
-          <p class="reward-amount">3,000 U</p>
-        </article>
-        <div class="sub-grid" style="grid-column: 1 / -1;">
-          <article class="reward-card glass">
-            <span class="hud-meta hud-meta--tl">IDX:04</span>
-            <span class="hud-meta hud-meta--tr">ARM</span>
-            <p class="reward-role">第四名 · 觉醒者</p>
-            <p class="reward-amount">1,500 U</p>
-          </article>
-          <article class="reward-card glass">
-            <span class="hud-meta hud-meta--tl">IDX:05</span>
-            <span class="hud-meta hud-meta--tr">ARM</span>
-            <p class="reward-role">第五名 · 觉醒者</p>
-            <p class="reward-amount">1,500 U</p>
-          </article>
-          <article class="reward-card glass">
-            <span class="hud-meta hud-meta--tl">IDX:06</span>
-            <span class="hud-meta hud-meta--tr">ARM</span>
-            <p class="reward-role">第六名 · 觉醒者</p>
-            <p class="reward-amount">1,500 U</p>
-          </article>
-        </div>
+      <div class="hero-stats">
+        <div><b>06</b><span>个兴趣小组<br>持续招募</span></div>
+        <div><b>3—5h</b><span>单次活动时长<br>徒步为一整天</span></div>
+        <div><b>+1</b><span>每次活动后<br>一起吃顿饭</span></div>
       </div>
-    </section>
+    </div>
+  </div>
+</header>
 
-    <section id="protocol" aria-labelledby="protocol-heading">
-      <p class="section-label reveal">JUDGE_PROTOCOL</p>
-      <h2 id="protocol-heading" class="section-title reveal">评审协议 — 打分标准</h2>
-      <div class="rings-row reveal-stagger" id="rings-row">
-        <div class="ring-item glass ring-panel">
-          <span class="hud-meta hud-meta--tl">METRIC_A</span>
-          <span class="hud-meta hud-meta--br">40WT</span>
-          <svg class="ring-svg" viewBox="0 0 100 100" aria-hidden="true">
-            <circle class="ring-aura" cx="50" cy="50" r="45" fill="none" stroke-width="20" />
-            <circle class="ring-bg" cx="50" cy="50" r="45" />
-            <circle class="ring-fill" cx="50" cy="50" r="45" data-pct="0.4" />
-          </svg>
-          <p class="ring-label">创新意识</p>
-          <p class="ring-sublabel">Innovation</p>
-          <p class="ring-pct">40%</p>
-        </div>
-        <div class="ring-item glass ring-panel">
-          <span class="hud-meta hud-meta--tl">METRIC_B</span>
-          <span class="hud-meta hud-meta--br">30WT</span>
-          <svg class="ring-svg" viewBox="0 0 100 100" aria-hidden="true">
-            <circle class="ring-aura" cx="50" cy="50" r="45" fill="none" stroke-width="20" />
-            <circle class="ring-bg" cx="50" cy="50" r="45" />
-            <circle class="ring-fill" cx="50" cy="50" r="45" data-pct="0.3" />
-          </svg>
-          <p class="ring-label">趣味性</p>
-          <p class="ring-sublabel">Fun</p>
-          <p class="ring-pct">30%</p>
-        </div>
-        <div class="ring-item glass ring-panel">
-          <span class="hud-meta hud-meta--tl">METRIC_C</span>
-          <span class="hud-meta hud-meta--br">30WT</span>
-          <svg class="ring-svg" viewBox="0 0 100 100" aria-hidden="true">
-            <circle class="ring-aura" cx="50" cy="50" r="45" fill="none" stroke-width="20" />
-            <circle class="ring-bg" cx="50" cy="50" r="45" />
-            <circle class="ring-fill" cx="50" cy="50" r="45" data-pct="0.3" />
-          </svg>
-          <p class="ring-label">完成度</p>
-          <p class="ring-sublabel">Completion</p>
-          <p class="ring-pct">30%</p>
-        </div>
+<!-- ===== Manifesto / Index ===== -->
+<section class="manifesto sheet" data-screen="关于 · 目录">
+  <div class="wrap manifesto-in">
+    <span class="label mute">About<br>关于这件事</span>
+    <p class="big">不打卡，不考核。<em>选一项你想试试的运动，</em>跟着组长出门，<em>出一身汗，</em>再和同事坐下来好好吃一顿饭。</p>
+
+    <div class="index">
+      <a href="#hiking"><span class="n">01</span><svg class="ico" aria-hidden="true"><use href="#i-hiking"/></svg><span class="t">徒步登山</span><span class="e">Trail Hiking</span><span class="s">已成团</span></a>
+      <a href="#basketball"><span class="n">02</span><svg class="ico" aria-hidden="true"><use href="#i-basketball"/></svg><span class="t">篮球</span><span class="e">Basketball</span><span class="s">已成团</span></a>
+      <a href="#racket"><span class="n">03</span><svg class="ico" aria-hidden="true"><use href="#i-racket"/></svg><span class="t">羽毛球与网球</span><span class="e">Badminton &amp; Tennis</span><span class="s">已成团</span></a>
+      <a href="#pickleball"><span class="n">04</span><svg class="ico" aria-hidden="true"><use href="#i-pickleball"/></svg><span class="t">Pickleball / 壁球</span><span class="e">Pickleball / Squash</span><span class="s open">招募中</span></a>
+      <a href="#running"><span class="n">05</span><svg class="ico" aria-hidden="true"><use href="#i-running"/></svg><span class="t">城市跑步</span><span class="e">City Running</span><span class="s">已成团</span></a>
+      <a href="#tabletennis"><span class="n">06</span><svg class="ico" aria-hidden="true"><use href="#i-tabletennis"/></svg><span class="t">乒乓球</span><span class="e">Table Tennis</span><span class="s">已成团</span></a>
+    </div>
+
+    <p class="print-only print-note">各小组成员仍在变动，页面不列具体预算金额。每个小组末尾的「查看预算表格 ↗」可直接打开在线预算表。</p>
+  </div>
+</section>
+
+<!-- ===== 01 Hiking ===== -->
+<section class="act sheet" id="hiking">
+  <div class="wrap">
+    <div class="scr-in scr-a" data-screen="徒步登山">
+    <header class="act-head">
+      <p class="idx"><svg class="ico" aria-hidden="true"><use href="#i-hiking"/></svg><b style="font-weight:500">01 <span>/ 06</span></b></p>
+      <h2><span class="en">Trail <i>Hiking</i></span></h2>
+      <div class="sub"><span class="cn">徒步登山</span><span class="tag">路线预研 · 队伍节奏 · 安全撤退</span></div>
+    </header>
+
+    <div class="act-body">
+      <figure class="ph ph-main"><img src="assets/img/hiking-trail.jpg" alt="三位徒步者沿杉树林间的山径上行" width="864" height="1152"></figure>
+      <div class="act-text">
+        <p class="lead">离开屏幕一整天，<em>把注意力交给脚下的路。</em>走到山顶的那顿简餐，通常是一周里最好吃的一顿。</p>
+        <p class="desc">以当日往返的轻—中等强度路线为主，从大阪近郊的山开始，例如金刚山千早本道。每次路线不同，由组长提前踩点规划，集合点与行程在活动前通知。</p>
+        <ul class="why">
+          <li><b>耐力与心肺</b><span>长时间低强度爬升，是最温和的有氧训练。</span></li>
+          <li><b>清空大脑</b><span>在林间走上几小时，压力会自己退下去。</span></li>
+          <li><b>聊得起来</b><span>并肩走路的节奏，很适合认识不同部门的同事。</span></li>
+        </ul>
+        <dl class="facts">
+          <div><dt>组长</dt><dd>Scoot &amp; Manny</dd></div>
+          <div><dt>时长</dt><dd>1 天<small>建议 09:00—18:00，结束后聚餐</small></dd></div>
+          <div><dt>地点</dt><dd>大阪近郊山径<small>每次路线不同，由组长提前规划</small></dd></div>
+          <div><dt>成行人数</dt><dd>2 人即可出发<span class="pill">已成团 · 10 人</span></dd></div>
+        </dl>
       </div>
-    </section>
+    </div>
 
-    <section id="submission-guide" aria-labelledby="submission-heading">
-      <p class="section-label reveal">SUBMISSION_GUIDE</p>
-      <h2 id="submission-heading" class="section-title reveal">投稿说明</h2>
-      <p class="guide-lead reveal">
-        现在，通往 10,000U 赏金的路径已经开启。阅读以下参与方式，确保你的创意能安全、完整地呈现。
-      </p>
-      <div class="guide-stack reveal-stagger">
-        <article class="guide-card glass">
-          <h3>一、投稿阵地：sundaycreative 空间</h3>
-          <p>发布至公司内部 sundaycreative 空间的指定活动看板。</p>
-        </article>
-        <article class="guide-card glass">
-          <h3>二、安全与合规（涉敏评估协议）</h3>
-          <p>AI 时代的创新必须建立在安全基石之上。在发布作品前，请务必进行自测：</p>
-          <p><strong>非敏感作品：</strong>若作品内容不涉及公司核心机密产品或数据，可自行部署上线，最后把上线地址发布于公司内部空间 sundaycreative。</p>
-          <p><strong>涉敏作品：</strong>若作品基于公司敏感产品逻辑或数据开发，严禁私自公网发布。</p>
-          <p><strong>动作：</strong>请将作品打包为本地文件。</p>
-          <p><strong>提交：</strong>统一私发汇总给 Lola。</p>
-          <p><strong>技术支持：</strong>如需在公司服务器进行闭环测试，可申请服务端团队协助挂载，确保在安全环境下完美运行。</p>
-        </article>
-        <article class="guide-card glass">
-          <h3>三、提交清单：Creator’s Log（创造者日志）</h3>
-          <p>我们奖励的不仅是结果，更是你驾驭 AI 的智慧。提交作品时，请附带一份精炼说明：</p>
-          <ol>
-            <li><strong>游戏名片：</strong>游戏名称及 300 字以内的核心卖点介绍。</li>
-            <li><strong>玩法说明：</strong>玩家如何操作？核心乐趣点在哪？</li>
-            <li><strong>AI 进化论：</strong>重点列出你在过程中使用的 AI 工具矩阵（例如：Gemini, Cursor, Midjourney 等）。</li>
-            <li><strong>协同过程：</strong>简述你如何利用 AI 完成了以往无法独立完成的任务（例如：非研发人员如何通过 AI 调通代码，或原画师如何通过 AI 快速搭建关卡）。</li>
-          </ol>
-        </article>
-        <article class="guide-card glass">
-          <h3>四、关键时刻 (Countdown)</h3>
-          <p><strong>开启时间：</strong>即刻开启，全员进入「觉醒模式」。</p>
-          <p><strong>截稿日期：</strong>2026 年 4 月 26 日 23:59。</p>
-          <p><strong>评选时刻：</strong>4 月底，根据创新、好玩、完成度三大维度，揭晓 10,000U 最终归属。</p>
-        </article>
+    </div>
+
+    <div class="scr-in scr-b" data-screen="徒步登山 · 装备">
+    <div class="gear">
+      <div class="gear-side">
+        <h3><small>Gear &amp; Why</small>装备与用途</h3>
+        <p>绿点标记的由小组经费统一配备，其余请自备。遇降雨、雷暴或积雪风险，活动取消。</p>
+        <figure class="ph ph-sub"><img src="assets/img/hiking-boots.jpg" alt="登山鞋与登山杖踩在布满树根的山路上" width="1152" height="864"></figure>
       </div>
-    </section>
+      <ol class="gear-list">
+        <li><span class="g-n">01</span><span class="g-name">登山鞋</span><span class="g-use">防滑抓地、包裹脚踝，防止在湿滑碎石路上摔跤。</span><span class="g-src">自备</span></li>
+        <li><span class="g-n">02</span><span class="g-name">20—30L 背包</span><span class="g-use">装水、路餐和替换衣物，把双手空出来。</span><span class="g-src">自备</span></li>
+        <li><span class="g-n">03</span><span class="g-name">登山杖</span><span class="g-use">降低膝盖受力，下坡时保护膝盖，也帮助保持平衡。</span><span class="g-src team">小组配备</span></li>
+        <li><span class="g-n">04</span><span class="g-name">速干衣</span><span class="g-use">快速排汗，避免衣服湿透后着凉。</span><span class="g-src">自备</span></li>
+        <li><span class="g-n">05</span><span class="g-name">冲锋衣 / 抓绒</span><span class="g-use">防风保暖，应对山顶与休息时的温差。</span><span class="g-src">自备</span></li>
+        <li><span class="g-n">06</span><span class="g-name">雨具</span><span class="g-use">山里天气变得快，突然下雨时保持干燥。</span><span class="g-src">自备</span></li>
+        <li><span class="g-n">07</span><span class="g-name">头灯</span><span class="g-use">下撤比预计晚时提供照明。</span><span class="g-src">自备</span></li>
+        <li><span class="g-n">08</span><span class="g-name">简易急救包</span><span class="g-use">处理擦伤、扭伤等小状况，由安全员携带。</span><span class="g-src team">小组配备</span></li>
+      </ol>
+    </div>
 
-    <section class="cta-block reveal" id="cta" aria-labelledby="cta-heading">
-      <h2 id="cta-heading" class="visually-hidden">行动召唤</h2>
-      <p class="cta-copy">
-        别问能不能做，问问你的 AI。4月26日前，用作品证明你的进化。
-      </p>
-      <div class="cta-btn-wrap">
-        <a
-          class="cta-btn"
-          href="https://sundaycreative.atlassian.net/wiki/spaces/AI/folder/270106670?atlOrigin=eyJpIjoiMzY2NDVkNDhhN2FhNDJlYWI4NjI2Y2RmZGI3Mzc4NGQiLCJwIjoiYyJ9"
-          target="_blank"
-          rel="noopener noreferrer"
-        >接受协议 &amp; 提交挑战</a>
+    <a class="budget" data-budget-link href="#fund" target="_blank" rel="noopener">
+      <span class="b-l">徒步登山 · 预算明细在在线表格中维护</span>
+      <span class="b-t">查看预算表格<i>↗</i></span>
+    </a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 02 Basketball ===== -->
+<section class="act flip sheet" id="basketball">
+  <div class="wrap">
+    <div class="scr-in scr-a" data-screen="篮球">
+    <header class="act-head">
+      <p class="idx"><svg class="ico" aria-hidden="true"><use href="#i-basketball"/></svg><b style="font-weight:500">02 <span>/ 06</span></b></p>
+      <h2><span class="en">Basket<i>ball</i></span></h2>
+      <div class="sub"><span class="cn">篮球</span><span class="tag">热身训练 · 分组对抗 · 趣味挑战</span></div>
+    </header>
+
+    <div class="act-body">
+      <figure class="ph ph-main"><img src="assets/img/basketball-shot.jpg" alt="球员在室内木地板球场跳投" width="864" height="1152"></figure>
+      <div class="act-text">
+        <p class="lead">三对三，八分钟一局。<em>不看水平，只看愿不愿意跑起来。</em>进一个球，全队都会喊。</p>
+        <p class="desc">从关节热身和基础练习开始，再分组打半场或全场，3v3 / 5v5 轮换上场，最后以罚球挑战收尾。场馆可租借球鞋、服装与篮球，第一次来不需要准备太多。</p>
+        <ul class="why">
+          <li><b>全身协调</b><span>跑、跳、急停、变向，一场球把全身都用上。</span></li>
+          <li><b>团队默契</b><span>一次挡拆、一个传球，比开十次会更快建立信任。</span></li>
+          <li><b>痛快出汗</b><span>间歇式高强度对抗，释放压力非常直接。</span></li>
+        </ul>
+        <dl class="facts">
+          <div><dt>组长</dt><dd>Iverson &amp; Zimo</dd></div>
+          <div><dt>时长</dt><dd>3—5 小时<small>含热身、对抗与拉伸，结束后聚餐</small></dd></div>
+          <div><dt>地点</dt><dd>HOOP7 东大阪店 / 心斋桥 / 美式村隐秘球场<small>HOOP7：大阪府东大阪市横枕南 4-10</small></dd></div>
+          <div><dt>成行人数</dt><dd>满 6 人开场<span class="pill">已成团 · 10 人</span></dd></div>
+        </dl>
       </div>
-      <p class="footer-note">AI_GAME_2026 // <span>PROTOCOL_ACTIVE</span></p>
-    </section>
-  </main>
+    </div>
 
-  <script>
-    (function () {
-      var video = document.querySelector("#hero video");
-      if (video) {
-        video.setAttribute("playsinline", "");
-        video.setAttribute("webkit-playsinline", "");
-        var tryPlay = function () {
-          var p = video.play();
-          if (p && typeof p.catch === "function") p.catch(function () {});
-        };
-        tryPlay();
-        document.addEventListener("visibilitychange", function () {
-          if (!document.hidden) tryPlay();
-        });
-      }
-    })();
+    </div>
 
-    (function () {
-      var canvas = document.getElementById("code-canvas");
-      var hero = document.getElementById("hero");
-      if (!canvas || !hero) return;
-      var ctx = canvas.getContext("2d", { alpha: true });
-      var chars = "01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン{}[]<>/\\;:*#$_";
-      var particles = [];
-      var dpr = Math.min(window.devicePixelRatio || 1, 2);
-      var w = 0;
-      var h = 0;
+    <div class="scr-in scr-b" data-screen="篮球 · 装备">
+    <div class="gear">
+      <div class="gear-side">
+        <h3><small>Gear &amp; Why</small>装备与用途</h3>
+        <p>绿点标记的由小组经费统一配备，其余请自备或在场馆租借。</p>
+        <figure class="ph ph-sub"><img src="assets/img/basketball-floor.jpg" alt="木地板上的篮球、球鞋与分队背心" width="1152" height="864"></figure>
+      </div>
+      <ol class="gear-list">
+        <li><span class="g-n">01</span><span class="g-name">室内篮球鞋</span><span class="g-use">防滑、缓震并支撑脚踝，减少急停和落地时的扭伤。</span><span class="g-src">自备</span></li>
+        <li><span class="g-n">02</span><span class="g-name">7 号篮球</span><span class="g-use">标准比赛用球，训练与对抗手感一致。</span><span class="g-src team">小组配备</span></li>
+        <li><span class="g-n">03</span><span class="g-name">分队背心</span><span class="g-use">双面两色，一眼分清队友和对手。</span><span class="g-src team">小组配备</span></li>
+        <li><span class="g-n">04</span><span class="g-name">护具</span><span class="g-use">护膝、护踝等，缓冲碰撞，保护旧伤部位。</span><span class="g-src">按需自备</span></li>
+      </ol>
+    </div>
 
-      function resize() {
-        w = Math.max(1, hero.offsetWidth);
-        h = Math.max(1, hero.offsetHeight);
-        dpr = Math.min(window.devicePixelRatio || 1, 2);
-        canvas.width = Math.floor(w * dpr);
-        canvas.height = Math.floor(h * dpr);
-        canvas.style.width = w + "px";
-        canvas.style.height = h + "px";
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      }
+    <a class="budget" data-budget-link href="#fund" target="_blank" rel="noopener">
+      <span class="b-l">篮球 · 预算明细在在线表格中维护</span>
+      <span class="b-t">查看预算表格<i>↗</i></span>
+    </a>
+    </div>
+  </div>
+</section>
 
-      function spawn() {
-        if (particles.length > 80) return;
-        var roll = Math.random();
-        var color = "#00f0ff";
-        if (roll < 0.07) color = "#ff007f";
-        else if (roll < 0.1) color = "#ffb020";
-        particles.push({
-          x: Math.random() * w,
-          y: h + Math.random() * 40,
-          speed: 0.4 + Math.random() * 1.2,
-          size: 10 + Math.random() * 14,
-          char: chars[Math.floor(Math.random() * chars.length)],
-          life: 1,
-          drift: (Math.random() - 0.5) * 0.35,
-          color: color
-        });
-      }
+<!-- ===== 03 Badminton & Tennis ===== -->
+<section class="act sheet" id="racket">
+  <div class="wrap">
+    <div class="scr-in scr-a" data-screen="羽毛球与网球">
+    <header class="act-head">
+      <p class="idx"><svg class="ico" aria-hidden="true"><use href="#i-racket"/></svg><b style="font-weight:500">03 <span>/ 06</span></b></p>
+      <h2><span class="en">Badminton <i>&amp; Tennis</i></span></h2>
+      <div class="sub"><span class="cn">羽毛球与网球</span><span class="tag">持拍运动 · 双打轮换 · 轻量竞技</span></div>
+    </header>
 
-      function tick() {
-        ctx.clearRect(0, 0, w, h);
-        if (Math.random() < 0.35) spawn();
+    <div class="act-body">
+      <figure class="ph ph-main"><img src="assets/img/badminton-shuttle.jpg" alt="羽毛球越过球网，后方球员持拍准备" width="864" height="1152"></figure>
+      <div class="act-text">
+        <p class="lead">一张网，两种节奏。<em>羽毛球快而轻，网球沉而远。</em>每次选一项，双打轮换，谁都有球打。</p>
+        <p class="desc">两项同属持拍运动，但场地与器材不同，所以每次活动只选其一。以双打循环为主，每局后轮换休息，控制连续上场时间，减轻肩肘与膝踝的负担。</p>
+        <ul class="why">
+          <li><b>反应与眼力</b><span>追着球看，是对久盯屏幕的眼睛最好的放松。</span></li>
+          <li><b>肩颈舒展</b><span>挥拍带动肩背，缓解久坐后的僵硬。</span></li>
+          <li><b>新手友好</b><span>双打有搭档补位，第一次拿拍也能打得起来。</span></li>
+        </ul>
+        <dl class="facts">
+          <div><dt>组长</dt><dd>Daniel &amp; Alvis</dd></div>
+          <div><dt>时长</dt><dd>3—5 小时<small>含热身、轮换赛与拉伸，结束后聚餐</small></dd></div>
+          <div><dt>地点</dt><dd>羽毛球 · 旭体育中心<small>大阪市旭区高殿 5-3-25</small>网球 · 靱公园网球中心<small>大阪市西区靱本町</small></dd></div>
+          <div><dt>成行人数</dt><dd>满 6 人开场<span class="pill">已成团 · 13 人</span></dd></div>
+        </dl>
+      </div>
+    </div>
 
-        ctx.font = "600 13px ui-monospace, Menlo, monospace";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
+    </div>
 
-        for (var i = particles.length - 1; i >= 0; i--) {
-          var p = particles[i];
-          p.y -= p.speed;
-          p.x += p.drift;
-          p.life -= 0.0025;
-          if (p.y < -30 || p.life <= 0) {
-            particles.splice(i, 1);
-            continue;
-          }
-          ctx.globalAlpha = p.life * 0.85;
-          ctx.fillStyle = p.color || "#00f0ff";
-          ctx.fillText(p.char, p.x, p.y);
-        }
-        ctx.globalAlpha = 1;
-        requestAnimationFrame(tick);
-      }
+    <div class="scr-in scr-b" data-screen="羽毛球与网球 · 装备">
+    <div class="gear">
+      <div class="gear-side">
+        <h3><small>Gear &amp; Why</small>装备与用途</h3>
+        <p>绿点标记的由小组经费统一配备，其余请自备。羽毛球馆禁止穿室外鞋入场。</p>
+        <figure class="ph ph-sub"><img src="assets/img/tennis-court.jpg" alt="绿色网球场上的球拍、网球与球网投影" width="1152" height="864"></figure>
+      </div>
+      <ol class="gear-list">
+        <li><span class="g-n">01</span><span class="g-name">球拍</span><span class="g-use">羽毛球拍与网球拍各备数支，没有拍子也能直接来。</span><span class="g-src team">小组配备</span></li>
+        <li><span class="g-n">02</span><span class="g-name">羽毛球 / 网球</span><span class="g-use">属于消耗品，每次活动按需补充。</span><span class="g-src team">小组配备</span></li>
+        <li><span class="g-n">03</span><span class="g-name">室内鞋 / 网球鞋</span><span class="g-use">急停变向时防滑，保护脚踝，也保护场地地面。</span><span class="g-src">自备</span></li>
+        <li><span class="g-n">04</span><span class="g-name">运动服</span><span class="g-use">透气排汗，不妨碍大幅度挥拍。</span><span class="g-src">自备</span></li>
+        <li><span class="g-n">05</span><span class="g-name">护腕</span><span class="g-use">稳定手腕，顺便吸汗，握拍不打滑。</span><span class="g-src">自备</span></li>
+      </ol>
+    </div>
 
-      resize();
-      window.addEventListener("resize", resize);
-      if (typeof ResizeObserver !== "undefined") {
-        new ResizeObserver(resize).observe(hero);
-      }
-      requestAnimationFrame(tick);
-    })();
+    <a class="budget" data-budget-link href="#fund" target="_blank" rel="noopener">
+      <span class="b-l">羽毛球与网球 · 预算明细在在线表格中维护</span>
+      <span class="b-t">查看预算表格<i>↗</i></span>
+    </a>
+    </div>
+  </div>
+</section>
 
-    (function () {
-      var observer = new IntersectionObserver(
-        function (entries) {
-          entries.forEach(function (entry) {
-            if (entry.isIntersecting) {
-              entry.target.classList.add("visible");
-              if (entry.target.id === "rings-row") {
-                entry.target.querySelectorAll(".ring-item").forEach(function (el) {
-                  el.classList.add("visible");
-                });
-              }
-            }
-          });
-        },
-        { root: null, rootMargin: "0px 0px -8% 0px", threshold: 0.12 }
-      );
+<!-- ===== 04 Pickleball / Squash ===== -->
+<section class="act flip sheet" id="pickleball">
+  <div class="wrap">
+    <div class="scr-in scr-a" data-screen="Pickleball / 壁球">
+    <header class="act-head">
+      <p class="idx"><svg class="ico" aria-hidden="true"><use href="#i-pickleball"/></svg><b style="font-weight:500">04 <span>/ 06</span></b></p>
+      <h2><span class="en">Pickleball <i>/ Squash</i></span></h2>
+      <div class="sub"><span class="cn">Pickleball / 壁球</span><span class="tag">新手友好 · 器材租赁 · 体验优先</span></div>
+    </header>
 
-      document.querySelectorAll(".reveal, .reveal-stagger").forEach(function (el) {
-        observer.observe(el);
+    <div class="act-body">
+      <figure class="ph ph-main"><img src="assets/img/pickleball-court.jpg" alt="匹克球场上两位双打球员与空中的黄色匹克球" width="864" height="1152"></figure>
+      <div class="act-text">
+        <p class="lead">大多数人都没打过，<em>所以大家都是新手。</em>这个小组还空着，等第一批人来开场。</p>
+        <p class="desc">Pickleball（匹克球）使用带孔塑料球和短柄球拍，场地约为网球场的四分之一，规则好上手，适合双打。壁球在封闭球场内借墙面回球，节奏更快、心肺负荷更高。首次活动建议从 Pickleball 开始，器材现场租赁。</p>
+        <ul class="why">
+          <li><b>十分钟上手</b><span>场地小、球速慢，很快就能打出来回。</span></li>
+          <li><b>对膝盖温和</b><span>跑动距离短，运动基础不多也能尽兴。</span></li>
+          <li><b>想更猛一点</b><span>换壁球，半小时就是一次高强度心肺训练。</span></li>
+        </ul>
+        <dl class="facts">
+          <div><dt>组长</dt><dd>暂无<span class="pill open">招募中</span><small>想发起的同事：拉小组群并邀请 Lola，募集成员后选定组长</small></dd></div>
+          <div><dt>时长</dt><dd>3—5 小时<small>含规则讲解、双打轮换与拉伸，结束后聚餐</small></dd></div>
+          <div><dt>地点</dt><dd>Pickleball · 南港中央庭球场<small>大阪市住之江区南港东 8-5-132</small>壁球 · Oli'Oli Club<small>堺市堺区南庄町 1-1-41</small></dd></div>
+          <div><dt>成行人数</dt><dd>满 6 人成团<small>成团后方可申请经费</small></dd></div>
+        </dl>
+      </div>
+    </div>
+
+    </div>
+
+    <div class="scr-in scr-b" data-screen="Pickleball / 壁球 · 装备">
+    <div class="gear">
+      <div class="gear-side">
+        <h3><small>Gear &amp; Why</small>装备与用途</h3>
+        <p>首次优先租赁球拍和球；确认长期开展后，再由小组统一采购。</p>
+        <figure class="ph ph-sub"><img src="assets/img/squash-court.jpg" alt="空的壁球场，地板上放着球拍与壁球" width="1152" height="864"></figure>
+      </div>
+      <ol class="gear-list">
+        <li><span class="g-n">01</span><span class="g-name">Pickleball 球拍</span><span class="g-use">短柄、拍面大，容易控球，新手很快能找到手感。</span><span class="g-src">首次租赁</span></li>
+        <li><span class="g-n">02</span><span class="g-name">带孔塑料球</span><span class="g-use">球速慢、弹跳低，留给新手足够的反应时间。</span><span class="g-src">首次租赁</span></li>
+        <li><span class="g-n">03</span><span class="g-name">防滑运动鞋</span><span class="g-use">频繁横向移动时抓地，避免滑倒和崴脚。</span><span class="g-src">自备</span></li>
+        <li><span class="g-n">04</span><span class="g-name">护腕</span><span class="g-use">稳定手腕，减轻连续击球的负担。</span><span class="g-src">自备</span></li>
+      </ol>
+    </div>
+
+    <a class="budget" data-budget-link href="#fund" target="_blank" rel="noopener">
+      <span class="b-l">Pickleball / 壁球 · 成团后纳入预算，表格中可查看当前进度</span>
+      <span class="b-t">查看预算表格<i>↗</i></span>
+    </a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 05 Running ===== -->
+<section class="act sheet" id="running">
+  <div class="wrap">
+    <div class="scr-in scr-a" data-screen="城市跑步">
+    <header class="act-head">
+      <p class="idx"><svg class="ico" aria-hidden="true"><use href="#i-running"/></svg><b style="font-weight:500">05 <span>/ 06</span></b></p>
+      <h2><span class="en">City <i>Running</i></span></h2>
+      <div class="sub"><span class="cn">城市跑步</span><span class="tag">同起点 · 分距离 · 同终点</span></div>
+    </header>
+
+    <div class="act-body">
+      <figure class="ph ph-main"><img src="assets/img/running-river.jpg" alt="傍晚时分三位跑者沿河畔步道慢跑" width="864" height="1152"></figure>
+      <div class="act-text">
+        <p class="lead">同一个起点出发，<em>按自己的配速跑自己的距离，</em>最后在同一个终点碰头。</p>
+        <p class="desc">在大阪市区跑步，路线、距离和集合点由组长每次活动前确定。按日常配速分组，每组有人领跑、有人收尾，刚开始跑步的同事和常跑的同事都能参加。</p>
+        <ul class="why">
+          <li><b>门槛最低</b><span>一双跑鞋就够，随时可以加入。</span></li>
+          <li><b>心肺与睡眠</b><span>规律慢跑提升心肺，也让人睡得更沉。</span></li>
+          <li><b>重新认识城市</b><span>用脚步经过河岸、公园和街区，看到通勤路上看不到的大阪。</span></li>
+        </ul>
+        <dl class="facts">
+          <div><dt>组长</dt><dd>joson &amp; 田桑</dd></div>
+          <div><dt>时长</dt><dd>3—5 小时<small>含热身、分组跑与拉伸，结束后聚餐</small></dd></div>
+          <div><dt>地点</dt><dd>大阪市区<small>路线与集合点由组长每次确定</small></dd></div>
+          <div><dt>成行人数</dt><dd>2 人即可出发<span class="pill">已成团 · 2 人</span></dd></div>
+        </dl>
+      </div>
+    </div>
+
+    </div>
+
+    <div class="scr-in scr-b" data-screen="城市跑步 · 装备">
+    <div class="gear">
+      <div class="gear-side">
+        <h3><small>Gear &amp; Why</small>装备与用途</h3>
+        <p>绿点标记的由小组经费统一配备，其余请自备。夜跑必须穿戴反光或发光装备。</p>
+        <figure class="ph ph-sub"><img src="assets/img/running-shoes.jpg" alt="跑者坐在石阶上系鞋带" width="1152" height="864"></figure>
+      </div>
+      <ol class="gear-list">
+        <li><span class="g-n">01</span><span class="g-name">跑鞋</span><span class="g-use">缓震回弹，减少硬路面对膝盖和脚踝的冲击。</span><span class="g-src">自备</span></li>
+        <li><span class="g-n">02</span><span class="g-name">秋冬跑步套装</span><span class="g-use">夹克与紧身裤，防风保暖，低温下肌肉不易拉伤。</span><span class="g-src team">小组配备</span></li>
+        <li><span class="g-n">03</span><span class="g-name">反光背心</span><span class="g-use">夜跑时让车辆和行人在远处就能看见你。</span><span class="g-src team">小组配备</span></li>
+        <li><span class="g-n">04</span><span class="g-name">简易急救包</span><span class="g-use">处理擦伤、抽筋等突发状况，由收尾人员携带。</span><span class="g-src team">小组配备</span></li>
+        <li><span class="g-n">05</span><span class="g-name">手机</span><span class="g-use">记录配速与路线，掉队时方便联络。</span><span class="g-src">自备</span></li>
+      </ol>
+    </div>
+
+    <a class="budget" data-budget-link href="#fund" target="_blank" rel="noopener">
+      <span class="b-l">城市跑步 · 预算明细在在线表格中维护</span>
+      <span class="b-t">查看预算表格<i>↗</i></span>
+    </a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 06 Table Tennis ===== -->
+<section class="act flip sheet" id="tabletennis">
+  <div class="wrap">
+    <div class="scr-in scr-a" data-screen="乒乓球">
+    <header class="act-head">
+      <p class="idx"><svg class="ico" aria-hidden="true"><use href="#i-tabletennis"/></svg><b style="font-weight:500">06 <span>/ 06</span></b></p>
+      <h2><span class="en">Table <i>Tennis</i></span></h2>
+      <div class="sub"><span class="cn">乒乓球</span><span class="tag">小球快节奏 · 单打双打轮换 · 随到随打</span></div>
+    </header>
+
+    <div class="act-body">
+      <figure class="ph ph-main"><img src="assets/img/tabletennis-play.jpg" alt="乒乓球越过球网，后方球员持拍准备" width="864" height="1152"></figure>
+      <div class="act-text">
+        <p class="lead">一张球台，两块球拍。<em>球很小，来回很快，</em>不知不觉就打满了一个晚上。</p>
+        <p class="desc">占地最小、最不挑天气的一项。从颠球和对拉热身开始，再打单打或双打，输了下、赢了留，轮换上台。很多人小时候都摸过球拍，重新捡起来比想象中快。</p>
+        <ul class="why">
+          <li><b>手眼与反应</b><span>球速快、旋转多，对专注力是很好的训练。</span></li>
+          <li><b>冲击小</b><span>跑动范围不大，对膝盖和脚踝友好，各年龄都能打。</span></li>
+          <li><b>风雨无阻</b><span>室内进行，不受天气和季节影响。</span></li>
+        </ul>
+        <dl class="facts">
+          <div><dt>组长</dt><dd>待定<small>由组员在小组群内推选</small></dd></div>
+          <div><dt>时长</dt><dd>3—5 小时<small>含热身、轮换对打与拉伸，结束后聚餐</small></dd></div>
+          <div><dt>地点</dt><dd>大阪市内乒乓球场馆<small>具体场馆由小组每次确定并预约</small></dd></div>
+          <div><dt>成行人数</dt><dd>2 人即可开打<span class="pill">已成团 · 4 人</span></dd></div>
+        </dl>
+      </div>
+    </div>
+
+    </div>
+
+    <div class="scr-in scr-b" data-screen="乒乓球 · 装备">
+    <div class="gear">
+      <div class="gear-side">
+        <h3><small>Gear &amp; Why</small>装备与用途</h3>
+        <p>绿点标记的由小组经费统一配备，其余请自备。场馆通常要求更换室内鞋。</p>
+        <figure class="ph ph-sub"><img src="assets/img/tabletennis-paddles.jpg" alt="球台一角的两块乒乓球拍与三颗乒乓球" width="1152" height="864"></figure>
+      </div>
+      <ol class="gear-list">
+        <li><span class="g-n">01</span><span class="g-name">乒乓球拍</span><span class="g-use">胶皮决定旋转和速度，小组备用拍适合新手上手。</span><span class="g-src team">小组配备</span></li>
+        <li><span class="g-n">02</span><span class="g-name">乒乓球</span><span class="g-use">属于消耗品，容易踩裂或打丢，多备一些。</span><span class="g-src team">小组配备</span></li>
+        <li><span class="g-n">03</span><span class="g-name">室内运动鞋</span><span class="g-use">小碎步和侧向移动时防滑，保护脚踝。</span><span class="g-src">自备</span></li>
+        <li><span class="g-n">04</span><span class="g-name">运动服</span><span class="g-use">透气排汗，不妨碍挥拍和转腰。</span><span class="g-src">自备</span></li>
+        <li><span class="g-n">05</span><span class="g-name">毛巾</span><span class="g-use">擦汗，保持手心干燥，握拍不打滑。</span><span class="g-src">自备</span></li>
+      </ol>
+    </div>
+
+    <a class="budget" data-budget-link href="#fund" target="_blank" rel="noopener">
+      <span class="b-l">乒乓球 · 预算明细在在线表格中维护</span>
+      <span class="b-t">查看预算表格<i>↗</i></span>
+    </a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Rules ===== -->
+<section class="rules sheet" id="rules">
+  <div class="wrap">
+    <div class="scr-in scr-r" data-screen="组织规则">
+    <header class="sec-head">
+      <span class="label mute">How it works</span>
+      <h2>How We <i>Play</i></h2>
+      <span class="cn">活动组织规则</span>
+    </header>
+
+    <ol class="rule-list">
+      <li><span class="r-n">01</span><span class="r-t">群内报名与沟通</span><span class="r-d">每个兴趣小组有自己的沟通群。报名、请假、集合信息都在群里说，以群内报名为准。</span></li>
+      <li><span class="r-n">02</span><span class="r-t">组长负责组织</span><span class="r-d">每次活动由组长发起和带队：确认人数、预约场地或规划路线，并指定一名安全员。</span></li>
+      <li><span class="r-n">03</span><span class="r-t">时间看实际情况</span><span class="r-d">不设固定周期。具体日期与时段由各小组结合成员时间、天气和场地情况决定。</span></li>
+      <li><span class="r-n">04</span><span class="r-t">人够了再出发</span><span class="r-d">发起前先确认人数：徒步、跑步、乒乓球 2 人成行；篮球、羽毛球、网球、Pickleball 满 6 人开场。人数不足则顺延。</span></li>
+      <li><span class="r-n">05</span><span class="r-t">活动后一起聚餐</span><span class="r-d">每次活动结束后安排聚餐。吃什么由小组成员当天自己决定。</span></li>
+    </ol>
+
+    </div>
+
+    <div class="scr-in scr-s" data-screen="安全与饮食提醒">
+    <div class="safety">
+      <div class="safety-col">
+        <h3>安全与取消<small>Safety</small></h3>
+        <ul>
+          <li><b>健康自检</b><span>活动前自查身体状况，不适就不参加。</span></li>
+          <li><b>活动前确认</b><span>核对天气、场馆规则、交通与紧急联系人。</span></li>
+          <li><b>安全员</b><span>每次指定一名安全员，并携带急救包。</span></li>
+          <li><b>户外延期</b><span>遇雷暴、暴雨、积雪结冰或官方警报，活动延期。</span></li>
+        </ul>
+      </div>
+      <div class="safety-col">
+        <h3>运动后饮食提醒<small>After</small></h3>
+        <ul>
+          <li><b>少喝酒</b><span>酒精会加重脱水、影响恢复。要喝请先补足水，少量即可。</span></li>
+          <li><b>先喝水</b><span>不要用含糖饮料或碳酸饮料代替补水。</span></li>
+          <li><b>别吃撑</b><span>避免暴饮暴食，或集中摄入大量油炸、高脂食物。</span></li>
+          <li><b>别空腹太久</b><span>运动后长时间不进食，同样不利于恢复。</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+    </div>
+</section>
+
+<!-- ===== Funding ===== -->
+<section class="fund sheet" id="fund" data-screen="经费规则">
+  <div class="wrap">
+    <header class="sec-head">
+      <span class="label">Funding</span>
+      <h2>Fair <i>&amp; Clear</i></h2>
+      <span class="cn">经费管理规则</span>
+    </header>
+
+    <ol class="flow">
+      <li><span class="f-n">01</span><b>汇总申请</b><span>各组预算由 Lola 汇总后统一提交。</span></li>
+      <li><span class="f-n">02</span><b>审批拨付</b><span>预算通过后，经费交到各组组长手中。</span></li>
+      <li><span class="f-n">03</span><b>组长管理</b><span>物资采购、场地与聚餐支出由组长负责。</span></li>
+      <li><span class="f-n">04</span><b>完成三次活动</b><span>每轮经费对应三次活动。</span></li>
+      <li><span class="f-n">05</span><b>结算再申请</b><span>单据照片与消费明细交给 Lola，再申请下一轮。</span></li>
+    </ol>
+
+    <ul class="fund-rules">
+      <li><b>成团才申请</b><span>已成团的小组可申请经费；未成团的先招募成员，成团后再纳入。</span></li>
+      <li><b>实报实销</b><span>物资、场地、聚餐等支出保留发票或收据，按实际金额报销。</span></li>
+      <li><b>小额杂项</b><span>买水、公共交通等小额消费计入杂项，无需提交单据。</span></li>
+      <li><b>预多不预少</b><span>按到场人数的上限估算，结余或超支在下一轮申请中统一说明。</span></li>
+    </ul>
+
+    <a class="budget" data-budget-link href="#fund" target="_blank" rel="noopener">
+      <span class="b-l">成员仍在变动，各组金额以在线表格为准</span>
+      <span class="b-t">查看预算表格<i>↗</i></span>
+    </a>
+    <div class="print-only print-foot"><span>Move Together© 兴趣小组团建活动 · 内部资料</span><span>Osaka · 2026</span></div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <span><b>Move Together©</b> 兴趣小组团建活动 · 内部资料</span>
+    <span>Osaka · 2026</span>
+  </div>
+</footer>
+
+<script>
+  // 预算表格链接：统一由顶部 BUDGET_SHEET_URL 注入
+  document.querySelectorAll("[data-budget-link]").forEach(function (a) { a.href = BUDGET_SHEET_URL; });
+
+  // 导航：滚动后显示底线 + 当前区块高亮
+  (function () {
+    var nav = document.getElementById("nav");
+    var links = Array.prototype.slice.call(document.querySelectorAll(".nav-links a"));
+    var map = {};
+    links.forEach(function (l) { map[l.getAttribute("href").slice(1)] = l; });
+    window.addEventListener("scroll", function () { nav.classList.toggle("is-stuck", window.scrollY > 8); }, { passive: true });
+    if (!("IntersectionObserver" in window)) return;
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        links.forEach(function (l) { l.classList.remove("is-active"); });
+        var l = map[e.target.id];
+        if (l) { l.classList.add("is-active"); l.scrollIntoView({ block: "nearest", inline: "center" }); }
       });
+    }, { rootMargin: "-45% 0px -50% 0px" });
+    Object.keys(map).forEach(function (id) { var el = document.getElementById(id); if (el) io.observe(el); });
+  })();
+</script>
+<script>
+/* ============================================================
+   交互：整屏翻页、进度球、入场动效、首屏视差
+   ============================================================ */
+(function () {
+  var root = document.documentElement;
+  var screens = Array.prototype.slice.call(document.querySelectorAll("[data-screen]"));
+  var NAV = 64;
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var desktop = window.matchMedia("(min-width: 1021px) and (hover: hover) and (pointer: fine)");
 
-      document.querySelectorAll("#rings-row .ring-fill").forEach(function (circle) {
-        var pct = parseFloat(circle.getAttribute("data-pct")) || 0;
-        var r = parseFloat(circle.getAttribute("r")) || 45;
-        var circumference = 2 * Math.PI * r;
-        circle.style.setProperty("--circ", String(circumference));
-        circle.style.setProperty("--offset", String(circumference * (1 - pct)));
-      });
+  /* ---------- 入场动效 ---------- */
+  var RV = ".hero-meta, .hero-foot, .manifesto .label, .manifesto .big, .index a, .act-head .idx b, .act-head .sub, .lead, .desc, .why li, .facts > div, .gear-side h3, .gear-side p, .gear-list li, .budget, .sec-head .label, .sec-head .cn, .rule-list li, .safety h3, .safety li, .flow li, .fund-rules li";
+  var MASK = ".hero h1 .l1, .hero h1 .l2, .act-head .en, .sec-head h2";
+  screens.forEach(function (sc) {
+    Array.prototype.forEach.call(sc.querySelectorAll(MASK), function (el, i) {
+      var inner = document.createElement("span");
+      inner.className = "mask-in"; inner.style.setProperty("--i", i);
+      while (el.firstChild) inner.appendChild(el.firstChild);
+      el.appendChild(inner); el.classList.add("mask");
+    });
+    Array.prototype.forEach.call(sc.querySelectorAll(RV), function (el, i) {
+      el.classList.add("rv"); el.style.setProperty("--i", Math.min(i, 12));
+    });
+  });
+  function reveal(sc) {
+    if (sc.classList.contains("in")) return;
+    sc.classList.add("in");
+    // 动效结束后移除延迟，避免影响 hover 过渡
+    setTimeout(function () {
+      Array.prototype.forEach.call(sc.querySelectorAll(".rv"), function (el) { el.classList.remove("rv"); });
+    }, 1900);
+  }
+  if ("IntersectionObserver" in window) {
+    var rio = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) reveal(e.target); });
+    }, { threshold: 0.12 });
+    screens.forEach(function (sc) { rio.observe(sc); });
+  } else { screens.forEach(reveal); }
 
-      document.getElementById("hero").classList.add("visible");
-    })();
+  /* ---------- 首屏：图片随鼠标轻微倾斜 ---------- */
+  (function () {
+    var hero = document.querySelector(".hero"), img = document.querySelector(".hero-img");
+    if (!hero || !img || reduce) return;
+    var tx = 0, ty = 0, cx = 0, cy = 0, raf = 0;
+    function tick() {
+      cx += (tx - cx) * 0.09; cy += (ty - cy) * 0.09;
+      img.style.transform = "perspective(1100px) rotateY(" + (cx * 5).toFixed(2) + "deg) rotateX(" + (-cy * 4).toFixed(2) + "deg) translate3d(" + (cx * 8).toFixed(1) + "px," + (cy * 6).toFixed(1) + "px,0)";
+      raf = (Math.abs(tx - cx) > 0.002 || Math.abs(ty - cy) > 0.002) ? requestAnimationFrame(tick) : 0;
+    }
+    hero.addEventListener("mousemove", function (e) {
+      if (!desktop.matches) return;
+      tx = e.clientX / window.innerWidth - 0.5; ty = e.clientY / window.innerHeight - 0.5;
+      if (!raf) raf = requestAnimationFrame(tick);
+    });
+    hero.addEventListener("mouseleave", function () { tx = ty = 0; if (!raf) raf = requestAnimationFrame(tick); });
+  })();
 
-  </script>
+  /* ---------- 整屏翻页（仅桌面 + 鼠标/触控板） ---------- */
+  var stops = [], stopScreen = [], animating = false, animEnd = 0, rafId = 0;
+  var rail = document.createElement("div"); rail.className = "rail"; rail.setAttribute("aria-hidden", "true");
+  var ball = document.createElement("span"); ball.className = "rail-ball"; rail.appendChild(ball);
+  var ticks = screens.map(function (sc, i) {
+    var b = document.createElement("button");
+    b.type = "button"; b.tabIndex = -1; b.setAttribute("data-label", sc.getAttribute("data-screen"));
+    if (!sc.classList.contains("scr-b") && !sc.classList.contains("scr-s")) b.classList.add("major");
+    b.addEventListener("click", function () { goScreen(i); });
+    rail.appendChild(b); return b;
+  });
+  document.body.appendChild(rail);
+
+  function viewH() { return window.innerHeight - NAV; }
+  function topOf(el) { return Math.max(0, Math.round(el.getBoundingClientRect().top + window.scrollY - NAV)); }
+  function maxScroll() { return Math.max(0, root.scrollHeight - window.innerHeight); }
+
+  // 让每一屏尽量刚好装进一个视口：按视口高度给出缩放系数，装不下再逐级缩小
+  function fit() {
+    if (!desktop.matches) { screens.forEach(function (sc) { sc.style.removeProperty("--k"); }); return; }
+    var vh = viewH(), base = Math.max(0.8, Math.min(1.12, window.innerHeight / 900));
+    screens.forEach(function (sc) {
+      var k = base; sc.style.setProperty("--k", k.toFixed(3));
+      while (sc.offsetHeight > vh + 2 && k > 0.7) { k -= 0.03; sc.style.setProperty("--k", k.toFixed(3)); }
+    });
+  }
+  function build() {
+    fit();
+    stops = []; stopScreen = [];
+    var vh = viewH(), max = maxScroll();
+    screens.forEach(function (sc, i) {
+      var t = Math.min(topOf(sc), max), h = sc.offsetHeight;
+      stops.push(t); stopScreen.push(i);
+      // 仍然超过一屏的内容：在屏内按视口高度分步
+      if (h > vh + 40) {
+        var step = vh * 0.85;
+        for (var y = t + step; y < t + h - vh; y += step) { stops.push(Math.round(y)); stopScreen.push(i); }
+        stops.push(Math.round(t + h - vh)); stopScreen.push(i);
+      }
+    });
+    if (max - stops[stops.length - 1] > 8) { stops.push(max); stopScreen.push(screens.length - 1); }
+    update();
+  }
+  function nearest(y) {
+    var best = 0, d = Infinity;
+    for (var i = 0; i < stops.length; i++) { var dd = Math.abs(stops[i] - y); if (dd < d) { d = dd; best = i; } }
+    return best;
+  }
+  function animateTo(y, dur) {
+    y = Math.max(0, Math.min(y, maxScroll()));
+    cancelAnimationFrame(rafId);
+    var from = window.scrollY, dist = y - from;
+    if (reduce || Math.abs(dist) < 2) { window.scrollTo(0, y); animating = false; animEnd = performance.now(); return; }
+    dur = dur || Math.min(900, 560 + Math.abs(dist) / window.innerHeight * 60);
+    var t0 = performance.now(); animating = true;
+    (function frame(now) {
+      var p = Math.min(1, (now - t0) / dur);
+      var e = 1 - Math.pow(1 - p, 4); // easeOutQuart：起步快、收尾稳
+      window.scrollTo(0, from + dist * e);
+      if (p < 1) rafId = requestAnimationFrame(frame);
+      else { animating = false; animEnd = performance.now(); }
+    })(t0);
+  }
+  function move(dir) {
+    var y = window.scrollY, i = nearest(y), target;
+    if (Math.abs(stops[i] - y) > 6) target = dir > 0 ? (stops[i] > y ? i : i + 1) : (stops[i] < y ? i : i - 1);
+    else target = i + dir;
+    target = Math.max(0, Math.min(stops.length - 1, target));
+    animateTo(stops[target]);
+  }
+  function goScreen(i) { if (desktop.matches) animateTo(stops[stopScreen.indexOf(i)]); else screens[i].scrollIntoView(); }
+
+  var current = -1;
+  function update() {
+    if (!stops.length) return;
+    var i = stopScreen[nearest(window.scrollY)];
+    if (i === current) return;
+    current = i;
+    ball.style.top = (ticks[i].offsetTop + 2) + "px";
+    ball.classList.remove("squash"); void ball.offsetWidth; ball.classList.add("squash");
+    rail.classList.toggle("on-dark", screens[i].classList.contains("fund"));
+  }
+  window.addEventListener("scroll", update, { passive: true });
+
+  var lastT = 0, lastAbs = 0;
+  window.addEventListener("wheel", function (e) {
+    if (!desktop.matches || e.ctrlKey || e.metaKey) return;
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+    e.preventDefault();
+    var now = performance.now(), abs = Math.abs(e.deltaY);
+    // 一次滚动手势只翻一屏：过滤触控板的惯性尾巴
+    var fresh = now - lastT > 110 || abs > lastAbs + 10 || (now - animEnd > 260 && abs >= 40);
+    lastT = now; lastAbs = abs;
+    if (animating || abs < 3 || !fresh) return;
+    move(e.deltaY > 0 ? 1 : -1);
+  }, { passive: false });
+
+  window.addEventListener("keydown", function (e) {
+    if (!desktop.matches || e.altKey || e.ctrlKey || e.metaKey) return;
+    var tag = (e.target.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || tag === "select") return;
+    var k = e.key, dir = 0;
+    if (k === "ArrowDown" || k === "PageDown" || (k === " " && !e.shiftKey)) dir = 1;
+    else if (k === "ArrowUp" || k === "PageUp" || (k === " " && e.shiftKey)) dir = -1;
+    else if (k === "Home") { e.preventDefault(); animateTo(0); return; }
+    else if (k === "End") { e.preventDefault(); animateTo(maxScroll()); return; }
+    if (!dir) return;
+    e.preventDefault();
+    if (!animating) move(dir);
+  });
+
+  // 导航与目录的锚点：同样用快速翻页动画
+  Array.prototype.forEach.call(document.querySelectorAll('a[href^="#"]:not([data-budget-link])'), function (a) {
+    a.addEventListener("click", function (e) {
+      if (!desktop.matches) return;
+      var id = a.getAttribute("href").slice(1), el = document.getElementById(id);
+      if (!el) return;
+      e.preventDefault();
+      var sc = el.hasAttribute("data-screen") ? el : el.querySelector("[data-screen]");
+      animateTo(sc ? stops[stopScreen.indexOf(screens.indexOf(sc))] : topOf(el), 800);
+      history.replaceState(null, "", "#" + id);
+    });
+  });
+
+  function mode() { root.classList.toggle("paged", desktop.matches); build(); }
+  var rt = 0;
+  window.addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(build, 120); });
+  if (desktop.addEventListener) desktop.addEventListener("change", mode);
+  window.addEventListener("load", function () {
+    mode();
+    if (desktop.matches && location.hash) {
+      var m = /^#s(\d+)$/.exec(location.hash); // #s1…#s17 可直接定位到第 N 屏
+      if (m && stops.length) { window.scrollTo(0, stops[stopScreen.indexOf(Math.min(screens.length, +m[1]) - 1)]); return; }
+      var el = document.getElementById(location.hash.slice(1)); if (el) window.scrollTo(0, topOf(el));
+    }
+  });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(build);
+  mode();
+})();
+</script>
 </body>
 </html>
